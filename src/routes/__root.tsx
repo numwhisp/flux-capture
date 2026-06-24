@@ -79,11 +79,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Retention Engine — Churn intervention prototype" },
       { name: "description", content: "Functional prototype: in-app contextual check-ins that surface hidden churn drivers and trigger targeted interventions." },
-      { property: "og:title", content: "Retention Engine" },
-      { property: "og:description", content: "In-app contextual check-ins that surface hidden churn drivers." },
+      { property: "og:title", content: "Retention Engine — Churn intervention prototype" },
+      { property: "og:description", content: "Functional prototype: in-app contextual check-ins that surface hidden churn drivers and trigger targeted interventions." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Retention Engine — Churn intervention prototype" },
+      { name: "twitter:description", content: "Functional prototype: in-app contextual check-ins that surface hidden churn drivers and trigger targeted interventions." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f0347b07-2afa-4360-8520-4bd77ec1c1f3/id-preview-a3771a69--f98155d8-4096-47b0-8540-73da6c6ed260.lovable.app-1782322719906.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f0347b07-2afa-4360-8520-4bd77ec1c1f3/id-preview-a3771a69--f98155d8-4096-47b0-8540-73da6c6ed260.lovable.app-1782322719906.png" },
     ],
     links: [
       {
