@@ -51,12 +51,121 @@ Two verbatim quotes from discovery anchor the problem:
 ## Build decisions
 
 - **TanStack Start + Vite + React 19** per the project template; file-based routes under `src/routes/`.
-- **Client-only state** in `src/lib/retention-store.ts` using a tiny `useSyncExternalStore` store persisted to `localStorage`. No backend — this is a feasibility prototype, not production. Lovable Cloud was intentionally not enabled.
-- **Deterministic friction classifier** (`classifyFreeText`) uses keyword regex instead of an LLM call so tagging is instant, free, and reproducible during demos.
+- **Client-only state** in `src/features/retention/store.ts` using a tiny `useSyncExternalStore` store persisted to `localStorage`. No backend — this is a feasibility prototype, not production. Lovable Cloud was intentionally not enabled.
+- **Deterministic friction classifier** (`classifyFreeText` in `src/features/retention/classifier.ts`) uses keyword regex instead of an LLM call so tagging is instant, free, and reproducible during demos.
 - **Seeded with real quotes and baseline metrics** so the admin view never shows empty/filler data on first load.
-- **Slide-out widget, not a modal** (`src/components/CheckInWidget.tsx`) to match a premium B2B SaaS aesthetic (PostHog / Mixpanel-style) and avoid intrusive center-screen pop-ups.
+- **Slide-out widget, not a modal** (`src/features/check-in/CheckInWidget.tsx`) to match a premium B2B SaaS aesthetic (PostHog / Mixpanel-style) and avoid intrusive center-screen pop-ups.
 - **Dark-mode-first design system** in `src/styles.css`: slate surfaces, emerald for pass thresholds, amber/crimson for churn alerts. No hardcoded color utilities in components — all tokens.
 - **Stress-test affordances** built into `/admin`: session simulator and Ignore Mode so the kill switch can be triggered on demand.
+
+## Project structure
+
+The codebase is grouped **by feature**, not by file type. Each feature owns its
+screens, sub-components, and any feature-local data. The shared data layer
+lives once under `src/features/retention/` and is consumed by every feature.
+
+```
+src/
+├── routes/                            # TanStack file-based routes — thin wrappers only
+│   ├── __root.tsx                     # root layout + head metadata
+│   ├── index.tsx                      → LandingPage
+│   ├── dashboard.tsx                  # /dashboard layout (renders <Outlet />)
+│   ├── dashboard.index.tsx            → WorkspacePage
+│   ├── dashboard.academy.tsx          → FastTrackAcademyPage
+│   ├── dashboard.team.tsx             → TeamWorkspacePage
+│   └── admin.tsx                      → AdminAnalyticsPage
+│
+├── features/
+│   ├── retention/                     # 🧠 data layer — single source of truth
+│   │   ├── types.ts                   # FrictionType, Cohort, SurveyResponse, SimUser…
+│   │   ├── seed.ts                    # seed users + verbatim quote responses + initialState
+│   │   ├── classifier.ts              # classifyFreeText() — deterministic regex
+│   │   ├── intervention.ts            # interventionFor / interventionLabel / frictionLabel
+│   │   ├── store.ts                   # useSyncExternalStore + actions, localStorage persistence
+│   │   ├── metrics.ts                 # deriveAnalytics, cohortFor, sparkFor, formatClock
+│   │   └── index.ts                   # barrel export
+│   │
+│   ├── landing/
+│   │   └── LandingPage.tsx            # Screen 1
+│   │
+│   ├── workspace/                     # Screen 2 — simulated SaaS dashboard
+│   │   ├── WorkspacePage.tsx
+│   │   └── WorkspaceWidgets.tsx       # SimControls, StatCard, SparkBars
+│   │
+│   ├── check-in/                      # Screens 3 + 4 — widget and intervention
+│   │   ├── CheckInWidget.tsx          # Screen 3: 3-question slide-out
+│   │   ├── PostSubmissionIntervention.tsx  # Screen 4: branched CTA
+│   │   ├── questions.ts               # Q1_OPTIONS, Q2_BY_FRICTION, ANALYZE_LATENCY_MS
+│   │   └── stages/                    # one file per friction branch
+│   │       ├── UsabilityStage.tsx
+│   │       ├── AdminStage.tsx
+│   │       └── ValueStage.tsx
+│   │
+│   ├── academy/                       # Screen 5 — Fast-Track Interactive Academy
+│   │   ├── FastTrackAcademyPage.tsx   # also exports FastTrackAcademyError
+│   │   ├── AcademyStepRow.tsx
+│   │   └── steps.ts                   # ACADEMY_STEPS data
+│   │
+│   ├── team/                          # Screen 6 — Team Workspace
+│   │   └── TeamWorkspacePage.tsx
+│   │
+│   └── admin/                         # PM analytics view (not a user screen)
+│       ├── AdminAnalyticsPage.tsx
+│       └── components/
+│           ├── Charts.tsx             # Sparkline, RetentionChart, LegendDot
+│           ├── MetricCards.tsx        # KpiCard, BaselineCell, FrictionBucketCard, FrictionPill
+│           ├── UserSimulator.tsx
+│           └── ResponseStream.tsx
+│
+├── components/ui/                     # shadcn primitives (unchanged)
+├── lib/                               # framework utilities (error reporting, cn helper)
+└── styles.css                         # design tokens
+```
+
+### Why this shape
+
+- **Routes stay tiny.** Every file in `src/routes/` only declares
+  `head()` metadata + `component:` and delegates to a feature page. No
+  business logic lives in routes, so URLs can be refactored without
+  touching screens.
+- **Data logic is separated from display.** Anything that mutates or
+  derives state — store actions, the friction classifier, the
+  intervention router, the admin metric snapshot — lives in
+  `features/retention/`. Display components import from
+  `@/features/retention` and never touch `localStorage` or seed data
+  directly.
+- **Each screen is one folder.** `check-in/` owns the widget, the
+  post-submission stage, the three branched stages, and the question
+  data file. To delete the academy you delete one folder.
+- **Component names match the PRD.** `LandingPage`, `WorkspacePage`,
+  `CheckInWidget`, `PostSubmissionIntervention`, `FastTrackAcademyPage`,
+  `TeamWorkspacePage`, `AdminAnalyticsPage` — same vocabulary as the
+  product doc.
+
+## End-to-end flow
+
+```text
+Landing  (LandingPage)
+  │  "Open dashboard"
+  ▼
+Workspace  (WorkspacePage)  ──────────►  Team  (TeamWorkspacePage)
+  │  Day 13–16 or 44–47 → cohortFor() returns "day14" | "day45"
+  │  → auto-opens after 600ms
+  ▼
+CheckInWidget  (3 questions: friction · detail · NPS-style + free-text)
+  │  Submit → ANALYZE_LATENCY_MS (800ms) skeleton
+  │  → classifyFreeText() overrides Q1 choice when it disagrees
+  │  → actions.submitResponse() writes to retention store
+  ▼
+PostSubmissionIntervention   ← branches on friction type
+  ├── usability → UsabilityStage → navigate to /dashboard/academy
+  ├── admin     → AdminStage     → actions.acceptTeamDiscount() + /dashboard/team
+  └── value     → ValueStage     → ROI snapshot in-widget
+
+Every store mutation streams into AdminAnalyticsPage:
+  deriveAnalytics(state) → engagement %, actionability %, lift, kill switch,
+                            friction breakdown + sparklines, retention curve.
+```
 
 ## Local development
 

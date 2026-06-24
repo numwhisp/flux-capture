@@ -8,24 +8,13 @@ import {
   classifyFreeText,
   frictionLabel,
   interventionFor,
-  interventionLabel,
   type Cohort,
   type FrictionType,
   type SimUser,
-} from "@/lib/retention-store";
-import {
-  Calendar,
-  GraduationCap,
-  BadgePercent,
-  LineChart,
-  CheckCircle2,
-  X,
-  Sparkles,
-  Loader2,
-  Download,
-  Users,
-  FileText,
-} from "lucide-react";
+} from "@/features/retention";
+import { Loader2, Sparkles, X } from "lucide-react";
+import { ANALYZE_LATENCY_MS, Q1_OPTIONS, Q2_BY_FRICTION, type Q1 } from "./questions";
+import { PostSubmissionIntervention } from "./PostSubmissionIntervention";
 
 interface Props {
   open: boolean;
@@ -34,21 +23,11 @@ interface Props {
   cohort: Cohort;
 }
 
-type Q1 = "setup" | "value" | "team" | "price";
-
-const Q1_OPTIONS: { id: Q1; label: string; friction: FrictionType }[] = [
-  { id: "setup", label: "Stuck getting it configured", friction: "usability" },
-  { id: "value", label: "Can't tell what changed for my team", friction: "value" },
-  { id: "team", label: "My team hasn't adopted it", friction: "admin" },
-  { id: "price", label: "Hard to justify the cost internally", friction: "admin" },
-];
-
-const Q2_BY_FRICTION: Record<FrictionType, string[]> = {
-  usability: ["Onboarding checklist", "Connecting our data sources", "Inviting teammates", "Finding the right report"],
-  value: ["Need ROI numbers", "Need a baseline comparison", "Need exec-ready summary", "Need usage trends"],
-  admin: ["Need more seats", "Need procurement help", "Need a discount", "Need an SSO/security review"],
-};
-
+/**
+ * Screen 3 — In-product Check-In Widget. Slide-out 3-question survey:
+ * picks a friction bucket, collects free-text, runs the classifier, then
+ * hands off to <PostSubmissionIntervention /> for the branched CTA.
+ */
 export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   const [step, setStep] = useState(0);
   const [q1, setQ1] = useState<Q1 | null>(null);
@@ -60,7 +39,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
     intervention: ReturnType<typeof interventionFor>;
   } | null>(null);
   // Analyzing phase: between Submit click and the post-submission intervention,
-  // we freeze the form and run an 0.8s skeleton so the regex categorizer has a
+  // we freeze the form and run a skeleton so the regex categorizer has a
   // visible "thinking" beat. Pure UX latency — categorization is sync.
   const [analyzing, setAnalyzing] = useState(false);
   const navigate = useNavigate();
@@ -68,13 +47,8 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   useEffect(() => {
     if (open) {
       actions.recordImpression();
-      setStep(0);
-      setQ1(null);
-      setQ2(null);
-      setQ3(null);
-      setFreeText("");
-      setSubmitted(null);
-      setAnalyzing(false);
+      setStep(0); setQ1(null); setQ2(null); setQ3(null);
+      setFreeText(""); setSubmitted(null); setAnalyzing(false);
     }
   }, [open]);
 
@@ -97,7 +71,6 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   function handleSubmit() {
     if (!finalFriction || !q1 || !q2 || q3 === null) return;
     setAnalyzing(true);
-    // Brief: exactly 800ms skeleton while regex classifier "processes".
     window.setTimeout(() => {
       const intervention = interventionFor(finalFriction, cohort);
       const r = actions.submitResponse({
@@ -114,7 +87,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
       setSubmitted({ id: r.id, intervention });
       setAnalyzing(false);
       setStep(3);
-    }, 800);
+    }, ANALYZE_LATENCY_MS);
   }
 
   function handleIntervention(accepted: boolean) {
@@ -285,7 +258,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
         )}
 
         {step === 3 && submitted && (
-          <InterventionStage
+          <PostSubmissionIntervention
             friction={submitted.intervention === "book_cs_call" || submitted.intervention === "send_tutorial" ? "usability"
               : submitted.intervention === "unlock_team_discount" ? "admin" : "value"}
             cohort={cohort}
@@ -302,195 +275,6 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
           />
         )}
       </div>
-    </div>
-  );
-}
-
-function InterventionStage({
-  friction,
-  cohort,
-  onAccept,
-  onDecline,
-}: {
-  friction: FrictionType;
-  cohort: Cohort;
-  onAccept: () => void;
-  onDecline: () => void;
-}) {
-  // Simulate API generation latency for the personalised asset.
-  const [generating, setGenerating] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setGenerating(false), 800);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <div className="px-4 pb-4 pt-3">
-      <div className="flex items-center gap-2 text-emerald-400">
-        <CheckCircle2 className="h-4 w-4" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider">
-          Matched fast-track · {frictionLabel(friction)}
-        </span>
-      </div>
-
-      {friction === "usability" && (
-        <UsabilityStage generating={generating} cohort={cohort} onAccept={onAccept} onDecline={onDecline} />
-      )}
-      {friction === "admin" && (
-        <AdminStage generating={generating} onAccept={onAccept} onDecline={onDecline} />
-      )}
-      {friction === "value" && (
-        <ValueStage generating={generating} onAccept={onAccept} onDecline={onDecline} />
-      )}
-    </div>
-  );
-}
-
-function UsabilityStage({
-  generating, cohort, onAccept, onDecline,
-}: { generating: boolean; cohort: Cohort; onAccept: () => void; onDecline: () => void }) {
-  const [slot, setSlot] = useState<string | null>(null);
-  const slots = ["Today 3:30pm", "Today 5:00pm", "Tomorrow 9:15am", "Tomorrow 11:00am"];
-  return (
-    <>
-      <div className="mt-3 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-          <Calendar className="h-3.5 w-3.5 text-emerald-400" /> Book an instant setup call · 15 min
-        </div>
-        <div className="mt-2.5 grid grid-cols-2 gap-1.5">
-          {slots.map((s) => (
-            <button
-              key={s}
-              onClick={() => setSlot(s)}
-              className={`rounded-sm border px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                slot === s
-                  ? "border-emerald-400 bg-emerald-500/20 text-emerald-200"
-                  : "border-border bg-background/40 text-foreground hover:border-emerald-500/40"
-              }`}
-            >{s}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-2 rounded-sm border border-border bg-background/30 p-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-          <GraduationCap className="h-3.5 w-3.5 text-emerald-400" />
-          {cohort === "day14" ? "Fast-track tutorial" : "Skip-ahead tutorial"}
-        </div>
-        <div className="mt-2 flex items-center gap-2 text-[11px]">
-          {generating ? (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
-              <span className="text-muted-foreground">Generating your custom link…</span>
-            </>
-          ) : (
-            <>
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              <span className="text-emerald-300">Link ready · 4 min · skips what you've done</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onDecline}>Maybe later</Button>
-        <Button
-          size="sm"
-          className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-          onClick={onAccept}
-          disabled={generating}
-        >Open fast-track tutorial</Button>
-      </div>
-    </>
-  );
-}
-
-function AdminStage({
-  generating, onAccept, onDecline,
-}: { generating: boolean; onAccept: () => void; onDecline: () => void }) {
-  // Brief: Admin friction → ROI Snapshot Report w/ progress loader + download.
-  return (
-    <>
-      <div className="mt-3 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-          <FileText className="h-3.5 w-3.5 text-emerald-400" /> Generated ROI Snapshot · PDF
-        </div>
-        <div className="mt-2.5 space-y-1.5 text-[11px] text-muted-foreground">
-          <RoiRow label="Hours saved / week" value="14.2h" />
-          <RoiRow label="Workflows automated" value="142" />
-          <RoiRow label="Est. payback" value="38 days" />
-        </div>
-        <div className="mt-2.5 h-1 overflow-hidden rounded-sm bg-muted">
-          <div
-            className="h-full bg-emerald-400 transition-all"
-            style={{ width: generating ? "62%" : "100%" }}
-          />
-        </div>
-        <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-          {generating ? "Compiling account data…" : "Ready to download"}
-        </div>
-      </div>
-
-      <div className="mt-2 rounded-sm border border-border bg-background/30 p-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-          <Users className="h-3.5 w-3.5 text-emerald-400" /> + Team-seat workspace unlocked
-        </div>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          20% off additional seats for 90 days, ready to share with finance.
-        </p>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onDecline}>Maybe later</Button>
-        <Button
-          size="sm"
-          className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-          onClick={onAccept}
-          disabled={generating}
-        >
-          <Download className="mr-1 h-3 w-3" /> Open team workspace
-        </Button>
-      </div>
-    </>
-  );
-}
-
-function ValueStage({
-  generating, onAccept, onDecline,
-}: { generating: boolean; onAccept: () => void; onDecline: () => void }) {
-  return (
-    <>
-      <div className="mt-3 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-          <LineChart className="h-3.5 w-3.5 text-emerald-400" /> Exec-ready ROI snapshot
-        </div>
-        <div className="mt-2 h-1 overflow-hidden rounded-sm bg-muted">
-          <div className="h-full bg-emerald-400 transition-all" style={{ width: generating ? "70%" : "100%" }} />
-        </div>
-        <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-          {generating ? "Calculating baseline delta…" : "Snapshot ready"}
-        </div>
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onDecline}>Maybe later</Button>
-        <Button
-          size="sm"
-          className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-          onClick={onAccept}
-          disabled={generating}
-        >
-          <Download className="mr-1 h-3 w-3" /> Download snapshot
-        </Button>
-      </div>
-    </>
-  );
-}
-
-function RoiRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span>{label}</span>
-      <span className="font-semibold tabular-nums text-foreground">{value}</span>
     </div>
   );
 }
