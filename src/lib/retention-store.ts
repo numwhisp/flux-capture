@@ -42,6 +42,9 @@ interface State {
   modalDismissals: number;
   modalImpressions: number;
   ignoreMode: boolean;
+  invites: { email: string; status: "pending" | "accepted" }[];
+  teamDiscountActivated: boolean;
+  academyProgress: Record<string, boolean>;
 }
 
 const STORAGE_KEY = "retention-engine-state-v2";
@@ -117,6 +120,9 @@ const initialState: State = {
   modalDismissals: 2,
   modalImpressions: 6,
   ignoreMode: false,
+  invites: [],
+  teamDiscountActivated: false,
+  academyProgress: {},
 };
 
 let state: State = load();
@@ -183,6 +189,21 @@ export const actions = {
   },
   setIgnoreMode(v: boolean) {
     setState((s) => ({ ...s, ignoreMode: v }));
+  },
+  inviteTeammate(email: string) {
+    setState((s) => ({ ...s, invites: [...s.invites, { email, status: "pending" }] }));
+  },
+  removeInvite(email: string) {
+    setState((s) => ({ ...s, invites: s.invites.filter((i) => i.email !== email) }));
+  },
+  acceptTeamDiscount() {
+    setState((s) => ({ ...s, teamDiscountActivated: true }));
+  },
+  setAcademyStep(id: string, done: boolean) {
+    setState((s) => ({ ...s, academyProgress: { ...s.academyProgress, [id]: done } }));
+  },
+  resetAcademy() {
+    setState((s) => ({ ...s, academyProgress: {} }));
   },
   /**
    * Simulate N user sessions. When ignoreMode is on every session is recorded
