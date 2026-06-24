@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,10 @@ import {
   CheckCircle2,
   X,
   Sparkles,
+  Loader2,
+  Download,
+  Users,
+  FileText,
 } from "lucide-react";
 
 interface Props {
@@ -54,6 +59,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
     id: string;
     intervention: ReturnType<typeof interventionFor>;
   } | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (open) {
@@ -109,17 +115,11 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
 
   if (!open) return null;
 
-  const InterventionIcon =
-    submitted?.intervention === "book_cs_call" ? Calendar
-      : submitted?.intervention === "send_tutorial" ? GraduationCap
-      : submitted?.intervention === "unlock_team_discount" ? BadgePercent
-      : LineChart;
-
   return (
     <div
       role="dialog"
       aria-label="Quick check-in"
-      className="fixed bottom-4 right-4 z-50 w-[min(380px,calc(100vw-2rem))] origin-bottom-right animate-in slide-in-from-bottom-4 fade-in-0 duration-300"
+      className="fixed bottom-4 right-4 z-50 w-[min(420px,calc(100vw-2rem))] origin-bottom-right animate-in slide-in-from-bottom-4 fade-in-0 duration-300"
     >
       <div className="overflow-hidden rounded-md border border-emerald-500/20 bg-card shadow-2xl shadow-emerald-500/5 ring-1 ring-emerald-500/10">
         <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-emerald-500/10 via-transparent to-transparent px-4 py-2.5">
@@ -251,46 +251,212 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
         )}
 
         {step === 3 && submitted && (
-          <div className="px-4 pb-4 pt-3">
-            <div className="flex items-center gap-2 text-emerald-400">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">
-                Matched fast-track
-              </span>
-            </div>
-            <div className="mt-3 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3">
-              <div className="flex items-start gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-emerald-500 text-emerald-950">
-                  <InterventionIcon className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {interventionLabel(submitted.intervention)}
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    {submitted.intervention === "book_cs_call" && "A specialist walks through your setup live. Avg resolution: 12 min."}
-                    {submitted.intervention === "send_tutorial" && "A 4-minute path to your first 'aha' — skips what you've done."}
-                    {submitted.intervention === "unlock_team_discount" && "20% off additional seats for 90 days. Bring the team in."}
-                    {submitted.intervention === "send_roi_report" && "Auto-generated ROI snapshot using your account data. Exec-ready."}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleIntervention(false)}>
-                Maybe later
-              </Button>
-              <Button
-                size="sm"
-                className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400"
-                onClick={() => handleIntervention(true)}
-              >
-                Yes, do it
-              </Button>
-            </div>
-          </div>
+          <InterventionStage
+            friction={submitted.intervention === "book_cs_call" || submitted.intervention === "send_tutorial" ? "usability"
+              : submitted.intervention === "unlock_team_discount" ? "admin" : "value"}
+            cohort={cohort}
+            onAccept={() => {
+              handleIntervention(true);
+              if (submitted.intervention === "send_tutorial" || submitted.intervention === "book_cs_call") {
+                navigate({ to: "/dashboard/academy" });
+              } else if (submitted.intervention === "unlock_team_discount") {
+                actions.acceptTeamDiscount();
+                navigate({ to: "/dashboard/team" });
+              }
+            }}
+            onDecline={() => handleIntervention(false)}
+          />
         )}
       </div>
+    </div>
+  );
+}
+
+function InterventionStage({
+  friction,
+  cohort,
+  onAccept,
+  onDecline,
+}: {
+  friction: FrictionType;
+  cohort: Cohort;
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  // Simulate API generation latency for the personalised asset.
+  const [generating, setGenerating] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setGenerating(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="px-4 pb-4 pt-3">
+      <div className="flex items-center gap-2 text-emerald-400">
+        <CheckCircle2 className="h-4 w-4" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider">
+          Matched fast-track · {frictionLabel(friction)}
+        </span>
+      </div>
+
+      {friction === "usability" && (
+        <UsabilityStage generating={generating} cohort={cohort} onAccept={onAccept} onDecline={onDecline} />
+      )}
+      {friction === "admin" && (
+        <AdminStage generating={generating} onAccept={onAccept} onDecline={onDecline} />
+      )}
+      {friction === "value" && (
+        <ValueStage generating={generating} onAccept={onAccept} onDecline={onDecline} />
+      )}
+    </div>
+  );
+}
+
+function UsabilityStage({
+  generating, cohort, onAccept, onDecline,
+}: { generating: boolean; cohort: Cohort; onAccept: () => void; onDecline: () => void }) {
+  const [slot, setSlot] = useState<string | null>(null);
+  const slots = ["Today 3:30pm", "Today 5:00pm", "Tomorrow 9:15am", "Tomorrow 11:00am"];
+  return (
+    <>
+      <div className="mt-3 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <Calendar className="h-3.5 w-3.5 text-emerald-400" /> Book an instant setup call · 15 min
+        </div>
+        <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+          {slots.map((s) => (
+            <button
+              key={s}
+              onClick={() => setSlot(s)}
+              className={`rounded-sm border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                slot === s
+                  ? "border-emerald-400 bg-emerald-500/20 text-emerald-200"
+                  : "border-border bg-background/40 text-foreground hover:border-emerald-500/40"
+              }`}
+            >{s}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-2 rounded-sm border border-border bg-background/30 p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <GraduationCap className="h-3.5 w-3.5 text-emerald-400" />
+          {cohort === "day14" ? "Fast-track tutorial" : "Skip-ahead tutorial"}
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[11px]">
+          {generating ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
+              <span className="text-muted-foreground">Generating your custom link…</span>
+            </>
+          ) : (
+            <>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span className="text-emerald-300">Link ready · 4 min · skips what you've done</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onDecline}>Maybe later</Button>
+        <Button
+          size="sm"
+          className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+          onClick={onAccept}
+          disabled={generating}
+        >Open fast-track tutorial</Button>
+      </div>
+    </>
+  );
+}
+
+function AdminStage({
+  generating, onAccept, onDecline,
+}: { generating: boolean; onAccept: () => void; onDecline: () => void }) {
+  // Brief: Admin friction → ROI Snapshot Report w/ progress loader + download.
+  return (
+    <>
+      <div className="mt-3 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <FileText className="h-3.5 w-3.5 text-emerald-400" /> Generated ROI Snapshot · PDF
+        </div>
+        <div className="mt-2.5 space-y-1.5 text-[11px] text-muted-foreground">
+          <RoiRow label="Hours saved / week" value="14.2h" />
+          <RoiRow label="Workflows automated" value="142" />
+          <RoiRow label="Est. payback" value="38 days" />
+        </div>
+        <div className="mt-2.5 h-1 overflow-hidden rounded-sm bg-muted">
+          <div
+            className="h-full bg-emerald-400 transition-all"
+            style={{ width: generating ? "62%" : "100%" }}
+          />
+        </div>
+        <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          {generating ? "Compiling account data…" : "Ready to download"}
+        </div>
+      </div>
+
+      <div className="mt-2 rounded-sm border border-border bg-background/30 p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <Users className="h-3.5 w-3.5 text-emerald-400" /> + Team-seat workspace unlocked
+        </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          20% off additional seats for 90 days, ready to share with finance.
+        </p>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onDecline}>Maybe later</Button>
+        <Button
+          size="sm"
+          className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+          onClick={onAccept}
+          disabled={generating}
+        >
+          <Download className="mr-1 h-3 w-3" /> Open team workspace
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function ValueStage({
+  generating, onAccept, onDecline,
+}: { generating: boolean; onAccept: () => void; onDecline: () => void }) {
+  return (
+    <>
+      <div className="mt-3 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <LineChart className="h-3.5 w-3.5 text-emerald-400" /> Exec-ready ROI snapshot
+        </div>
+        <div className="mt-2 h-1 overflow-hidden rounded-sm bg-muted">
+          <div className="h-full bg-emerald-400 transition-all" style={{ width: generating ? "70%" : "100%" }} />
+        </div>
+        <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          {generating ? "Calculating baseline delta…" : "Snapshot ready"}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onDecline}>Maybe later</Button>
+        <Button
+          size="sm"
+          className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+          onClick={onAccept}
+          disabled={generating}
+        >
+          <Download className="mr-1 h-3 w-3" /> Download snapshot
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function RoiRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span>{label}</span>
+      <span className="font-semibold tabular-nums text-foreground">{value}</span>
     </div>
   );
 }
