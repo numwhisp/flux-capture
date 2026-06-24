@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckInWidget } from "@/components/CheckInWidget";
 import { actions, useRetentionStore, type Cohort } from "@/lib/retention-store";
 import { Button } from "@/components/ui/button";
-import { Activity, ArrowLeft, BarChart3, Bell, Inbox, Users } from "lucide-react";
+import { Activity, ArrowLeft, BarChart3, Bell, Inbox, Users, GraduationCap } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -51,6 +51,12 @@ function DashboardRoute() {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
               <Link to="/admin"><BarChart3 className="mr-1.5 h-4 w-4" /> PM view</Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/dashboard/team"><Users className="mr-1.5 h-4 w-4" /> Team</Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/dashboard/academy"><GraduationCap className="mr-1.5 h-4 w-4" /> Academy</Link>
             </Button>
             <Bell className="h-4 w-4 text-muted-foreground" />
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold">
