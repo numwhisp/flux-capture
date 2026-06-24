@@ -239,7 +239,7 @@ function AdminRoute() {
                         <FrictionPill friction={r.friction} />
                         {sim && <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">sim</span>}
                       </div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{new Date(r.createdAt).toLocaleTimeString()}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{formatClock(r.createdAt)}</span>
                     </div>
                     {!sim && (
                       <p className="mt-2 text-sm text-foreground">{r.q1} → <span className="text-muted-foreground">{r.q2}</span> · {r.q3}</p>
@@ -368,6 +368,8 @@ function barColor(f: FrictionType) {
 }
 
 function FrictionPill({ friction }: { friction: FrictionType }) {
+  return null as never;
+}
   const cls = friction === "usability" ? "bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/30"
     : friction === "value" ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30"
     : "bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/30";
