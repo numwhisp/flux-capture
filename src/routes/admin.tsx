@@ -170,20 +170,21 @@ function AdminRoute() {
           </div>
 
           <div className="rounded-sm border border-border bg-card p-5 lg:col-span-2">
-            <h2 className="text-sm font-semibold">Friction mix</h2>
-            <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Friction sentiment breakdown</h2>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">12h trend</span>
+            </div>
+            <div className="mt-4 space-y-2.5">
               {(Object.keys(counts) as FrictionType[]).map((f) => {
                 const pct = (counts[f] / totalFriction) * 100;
                 return (
-                  <div key={f}>
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium text-foreground">{frictionLabel(f)}</span>
-                      <span className="text-muted-foreground">{counts[f]} · {pct.toFixed(0)}%</span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-sm bg-muted">
-                      <div className={`h-full ${barColor(f)}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
+                  <FrictionBucketCard
+                    key={f}
+                    friction={f}
+                    count={counts[f]}
+                    pct={pct}
+                    spark={sparkFor(f, counts[f])}
+                  />
                 );
               })}
             </div>
