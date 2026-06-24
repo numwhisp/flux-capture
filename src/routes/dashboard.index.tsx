@@ -5,7 +5,7 @@ import { actions, useRetentionStore, type Cohort } from "@/lib/retention-store";
 import { Button } from "@/components/ui/button";
 import { Activity, ArrowLeft, BarChart3, Bell, Inbox, Users, GraduationCap } from "lucide-react";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/dashboard/")({
   head: () => ({
     meta: [
       { title: "User dashboard — Retention Engine" },

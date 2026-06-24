@@ -9,17 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardTeamRouteImport } from './routes/dashboard.team'
 import { Route as DashboardAcademyRouteImport } from './routes/dashboard.academy'
 
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -30,73 +25,73 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardTeamRoute = DashboardTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => DashboardRoute,
+  id: '/dashboard/team',
+  path: '/dashboard/team',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardAcademyRoute = DashboardAcademyRouteImport.update({
-  id: '/academy',
-  path: '/academy',
-  getParentRoute: () => DashboardRoute,
+  id: '/dashboard/academy',
+  path: '/dashboard/academy',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/academy': typeof DashboardAcademyRoute
   '/dashboard/team': typeof DashboardTeamRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/academy': typeof DashboardAcademyRoute
   '/dashboard/team': typeof DashboardTeamRoute
+  '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/academy': typeof DashboardAcademyRoute
   '/dashboard/team': typeof DashboardTeamRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
-    | '/dashboard'
     | '/dashboard/academy'
     | '/dashboard/team'
+    | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/dashboard' | '/dashboard/academy' | '/dashboard/team'
+  to: '/' | '/admin' | '/dashboard/academy' | '/dashboard/team' | '/dashboard'
   id:
     | '__root__'
     | '/'
     | '/admin'
-    | '/dashboard'
     | '/dashboard/academy'
     | '/dashboard/team'
+    | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
-  DashboardRoute: typeof DashboardRouteWithChildren
+  DashboardAcademyRoute: typeof DashboardAcademyRoute
+  DashboardTeamRoute: typeof DashboardTeamRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -111,41 +106,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/team': {
       id: '/dashboard/team'
-      path: '/team'
+      path: '/dashboard/team'
       fullPath: '/dashboard/team'
       preLoaderRoute: typeof DashboardTeamRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/academy': {
       id: '/dashboard/academy'
-      path: '/academy'
+      path: '/dashboard/academy'
       fullPath: '/dashboard/academy'
       preLoaderRoute: typeof DashboardAcademyRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface DashboardRouteChildren {
-  DashboardAcademyRoute: typeof DashboardAcademyRoute
-  DashboardTeamRoute: typeof DashboardTeamRoute
-}
-
-const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardAcademyRoute: DashboardAcademyRoute,
-  DashboardTeamRoute: DashboardTeamRoute,
-}
-
-const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
-  DashboardRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  DashboardRoute: DashboardRouteWithChildren,
+  DashboardAcademyRoute: DashboardAcademyRoute,
+  DashboardTeamRoute: DashboardTeamRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
