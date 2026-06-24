@@ -1,12 +1,27 @@
 import { supabase } from "@/integrations/supabase/client";
 import type {
+  AcademyStepRecord,
+  Baseline,
   Cohort,
+  CohortConfigEntry,
+  ExperimentConfig,
   FrictionType,
   InterventionAction,
+  InterventionRule,
   SimUser,
+  SurveyQuestion,
   SurveyResponse,
 } from "./types";
-import { seedUsers, seedResponses } from "./seed";
+import {
+  FALLBACK_ACADEMY_STEPS,
+  FALLBACK_BASELINE,
+  FALLBACK_COHORT_CONFIG,
+  FALLBACK_EXPERIMENT_CONFIG,
+  FALLBACK_INTERVENTION_RULES,
+  FALLBACK_SURVEY_QUESTIONS,
+  seedResponses,
+  seedUsers,
+} from "./seed";
 
 // ---------- mappers ----------
 
@@ -49,6 +64,55 @@ type DbAcademyProgress = {
   done: boolean;
 };
 
+type DbSurveyQuestion = {
+  id: string;
+  cohort: Cohort | null;
+  question_type: "friction_pick" | "friction_drilldown";
+  friction: FrictionType | null;
+  order: number;
+  prompt: string;
+  options: unknown;
+  active: boolean;
+};
+
+type DbInterventionRule = {
+  cohort: Cohort;
+  friction: FrictionType;
+  action: InterventionAction;
+  label: string;
+  active: boolean;
+};
+
+type DbCohortConfig = {
+  name: Cohort;
+  min_day: number;
+  max_day: number;
+  active: boolean;
+};
+
+type DbOrgBaseline = {
+  ninety_day_churn: number;
+  activation_rate: number;
+  seats_per_account: number;
+  time_to_first_value_days: number;
+};
+
+type DbExperimentConfigRow = { key: string; value: unknown };
+
+type DbAcademyStep = {
+  step_id: string;
+  label: string;
+  sub: string;
+  order: number;
+  is_failing: boolean;
+  active: boolean;
+};
+
+type DbUserEntitlement = {
+  user_id: string;
+  team_discount_activated: boolean;
+};
+
 export function dbToSimUser(r: DbSimUser): SimUser {
   return {
     id: r.id, name: r.name, company: r.company, role: r.role,
@@ -86,16 +150,80 @@ export function responseToDb(r: SurveyResponse) {
 // ---------- fetchers ----------
 
 export async function fetchAll() {
-  const [usersRes, respRes, invRes, acadRes] = await Promise.all([
+  const [
+    usersRes, respRes, invRes, acadRes,
+    questionsRes, rulesRes, cohortRes, baselineRes,
+    cfgRes, stepsRes, entRes, modalRes,
+  ] = await Promise.all([
     supabase.from("sim_users").select("*"),
     supabase.from("survey_responses").select("*").order("created_at", { ascending: false }),
     supabase.from("invites").select("*").order("created_at", { ascending: false }),
     supabase.from("academy_progress").select("*"),
+    supabase.from("survey_questions").select("*").eq("active", true).order("order", { ascending: true }),
+    supabase.from("intervention_rules").select("*").eq("active", true),
+    supabase.from("cohort_config").select("*").eq("active", true),
+    supabase.from("org_baselines").select("*").order("updated_at", { ascending: false }).limit(1),
+    supabase.from("experiment_config").select("*"),
+    supabase.from("academy_steps").select("*").eq("active", true).order("order", { ascending: true }),
+    supabase.from("user_entitlements").select("*"),
+    supabase.from("modal_events").select("event_type"),
   ]);
-  if (usersRes.error) throw usersRes.error;
-  if (respRes.error) throw respRes.error;
-  if (invRes.error) throw invRes.error;
-  if (acadRes.error) throw acadRes.error;
+  for (const r of [usersRes, respRes, invRes, acadRes, questionsRes, rulesRes, cohortRes, baselineRes, cfgRes, stepsRes, entRes, modalRes]) {
+    if (r.error) throw r.error;
+  }
+
+  // Aggregate modal events into impression / dismissal counts.
+  const modalCounts = { impressions: 0, dismissals: 0 };
+  for (const ev of (modalRes.data as { event_type: string }[])) {
+    if (ev.event_type === "impression") modalCounts.impressions++;
+    else if (ev.event_type === "dismissal") modalCounts.dismissals++;
+  }
+
+  // Build experiment_config object with fallbacks for any missing keys.
+  const cfgMap = new Map<string, unknown>((cfgRes.data as DbExperimentConfigRow[]).map((r) => [r.key, r.value]));
+  const num = (k: string, fallback: number) => {
+    const v = cfgMap.get(k);
+    return typeof v === "number" ? v : fallback;
+  };
+  const experimentConfig: ExperimentConfig = {
+    killSwitchThreshold: num("kill_switch_threshold", FALLBACK_EXPERIMENT_CONFIG.killSwitchThreshold),
+    engagementTarget:    num("engagement_target",    FALLBACK_EXPERIMENT_CONFIG.engagementTarget),
+    analyzeLatencyMs:    num("analyze_latency_ms",   FALLBACK_EXPERIMENT_CONFIG.analyzeLatencyMs),
+    ignoreMode: cfgMap.get("ignore_mode") === true,
+  };
+
+  const baselineRow = (baselineRes.data as DbOrgBaseline[])[0];
+  const baseline: Baseline = baselineRow
+    ? {
+        ninetyDayChurn: Number(baselineRow.ninety_day_churn),
+        activationRate: Number(baselineRow.activation_rate),
+        seatsPerAccount: Number(baselineRow.seats_per_account),
+        timeToFirstValueDays: Number(baselineRow.time_to_first_value_days),
+      }
+    : FALLBACK_BASELINE;
+
+  const surveyQuestions: SurveyQuestion[] = (questionsRes.data as DbSurveyQuestion[]).map((q) => ({
+    id: q.id, cohort: q.cohort, questionType: q.question_type, friction: q.friction,
+    order: q.order, prompt: q.prompt, options: q.options, active: q.active,
+  }));
+
+  const interventionRules: InterventionRule[] = (rulesRes.data as DbInterventionRule[]).map((r) => ({
+    cohort: r.cohort, friction: r.friction, action: r.action, label: r.label, active: r.active,
+  }));
+
+  const cohortConfig: CohortConfigEntry[] = (cohortRes.data as DbCohortConfig[]).map((c) => ({
+    name: c.name, minDay: c.min_day, maxDay: c.max_day, active: c.active,
+  }));
+
+  const academySteps: AcademyStepRecord[] = (stepsRes.data as DbAcademyStep[]).map((s) => ({
+    id: s.step_id, label: s.label, sub: s.sub, order: s.order, failing: s.is_failing,
+  }));
+
+  const entitlements: Record<string, boolean> = {};
+  for (const e of (entRes.data as DbUserEntitlement[])) {
+    entitlements[e.user_id] = e.team_discount_activated;
+  }
+
   return {
     users: (usersRes.data as DbSimUser[]).map(dbToSimUser),
     responses: (respRes.data as DbSurveyResponse[]).map(dbToResponse),
@@ -103,6 +231,15 @@ export async function fetchAll() {
     academyProgress: (acadRes.data as DbAcademyProgress[]).reduce<Record<string, boolean>>(
       (acc, row) => { acc[row.step_id] = row.done; return acc; }, {},
     ),
+    surveyQuestions: surveyQuestions.length ? surveyQuestions : FALLBACK_SURVEY_QUESTIONS,
+    interventionRules: interventionRules.length ? interventionRules : FALLBACK_INTERVENTION_RULES,
+    cohortConfig: cohortConfig.length ? cohortConfig : FALLBACK_COHORT_CONFIG,
+    baseline,
+    experimentConfig,
+    academySteps: academySteps.length ? academySteps : FALLBACK_ACADEMY_STEPS,
+    entitlements,
+    modalImpressions: modalCounts.impressions,
+    modalDismissals: modalCounts.dismissals,
   };
 }
 
@@ -160,10 +297,38 @@ export const sync = {
     supabase.from("academy_progress").delete().eq("user_id", userId)
       .then(({ error }) => logErr("clearAcademyForUser")(error));
   },
+  recordModalEvent(userId: string | null, eventType: "impression" | "dismissal" | "submit", cohort: Cohort | null) {
+    supabase.from("modal_events").insert({ user_id: userId, event_type: eventType, cohort })
+      .then(({ error }) => logErr("recordModalEvent")(error));
+  },
+  setIgnoreMode(value: boolean) {
+    supabase.from("experiment_config")
+      .upsert({ key: "ignore_mode", value: value as unknown as never }, { onConflict: "key" })
+      .then(({ error }) => logErr("setIgnoreMode")(error));
+  },
+  setTeamDiscountActivated(userId: string, value: boolean) {
+    supabase.from("user_entitlements")
+      .upsert(
+        {
+          user_id: userId,
+          team_discount_activated: value,
+          discount_activated_at: value ? new Date().toISOString() : null,
+        },
+        { onConflict: "user_id" },
+      )
+      .then(({ error }) => logErr("setTeamDiscountActivated")(error));
+  },
   async resetAll() {
     // Wipe everything; FK cascades delete responses/invites/academy.
-    const del = await supabase.from("sim_users").delete().not("id", "is", null);
-    if (del.error) console.error("[retention-sync] resetAll delete", del.error);
+    const tasks = await Promise.all([
+      supabase.from("modal_events").delete().not("id", "is", null),
+      supabase.from("user_entitlements").delete().not("id", "is", null),
+      supabase.from("sim_users").delete().not("id", "is", null),
+    ]);
+    for (const t of tasks) if (t.error) console.error("[retention-sync] resetAll delete", t.error);
+    // Reset ignore_mode back to false in experiment_config (best-effort).
+    await supabase.from("experiment_config")
+      .upsert({ key: "ignore_mode", value: false as unknown as never }, { onConflict: "key" });
     await seedIfEmpty();
   },
 };
