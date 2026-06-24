@@ -7,13 +7,14 @@ import {
   actions,
   classifyFreeText,
   frictionLabel,
-  interventionFor,
+  resolveInterventionFromRules,
+  useRetentionStore,
   type Cohort,
   type FrictionType,
   type SimUser,
 } from "@/features/retention";
 import { Loader2, Sparkles, X } from "lucide-react";
-import { ANALYZE_LATENCY_MS, Q1_OPTIONS, Q2_BY_FRICTION, type Q1 } from "./questions";
+import { getAnalyzeLatencyMs, getQ1Options, getQ2Options } from "./questions";
 import { PostSubmissionIntervention } from "./PostSubmissionIntervention";
 
 interface Props {
@@ -30,19 +31,25 @@ interface Props {
  */
 export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   const [step, setStep] = useState(0);
-  const [q1, setQ1] = useState<Q1 | null>(null);
+  const [q1, setQ1] = useState<string | null>(null);
   const [q2, setQ2] = useState<string | null>(null);
   const [q3, setQ3] = useState<number | null>(null);
   const [freeText, setFreeText] = useState("");
   const [submitted, setSubmitted] = useState<{
     id: string;
-    intervention: ReturnType<typeof interventionFor>;
+    intervention: ReturnType<typeof resolveInterventionFromRules>;
   } | null>(null);
   // Analyzing phase: between Submit click and the post-submission intervention,
   // we freeze the form and run a skeleton so the regex categorizer has a
   // visible "thinking" beat. Pure UX latency — categorization is sync.
   const [analyzing, setAnalyzing] = useState(false);
   const navigate = useNavigate();
+
+  // DB-driven survey config (with hardcoded fallback during first paint).
+  const surveyQuestions = useRetentionStore((s) => s.surveyQuestions);
+  const interventionRules = useRetentionStore((s) => s.interventionRules);
+  const analyzeLatencyMs = useRetentionStore(getAnalyzeLatencyMs);
+  const q1Options = useMemo(() => getQ1Options(surveyQuestions), [surveyQuestions]);
 
   useEffect(() => {
     if (open) {
@@ -53,8 +60,8 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   }, [open]);
 
   const choiceFriction = useMemo<FrictionType | null>(
-    () => (q1 ? Q1_OPTIONS.find((o) => o.id === q1)!.friction : null),
-    [q1],
+    () => (q1 ? q1Options.find((o) => o.id === q1)?.friction ?? null : null),
+    [q1, q1Options],
   );
 
   // Real-time LLM-stub classification of the free-text answer.
@@ -72,12 +79,12 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
     if (!finalFriction || !q1 || !q2 || q3 === null) return;
     setAnalyzing(true);
     window.setTimeout(() => {
-      const intervention = interventionFor(finalFriction, cohort);
+      const intervention = resolveInterventionFromRules(interventionRules, finalFriction, cohort);
       const r = actions.submitResponse({
         userId: user.id,
         cohort,
         friction: finalFriction,
-        q1: Q1_OPTIONS.find((o) => o.id === q1)!.label,
+        q1: q1Options.find((o) => o.id === q1)?.label ?? q1,
         q2,
         q3: `${q3}/10 likely to renew`,
         freeText,
@@ -87,7 +94,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
       setSubmitted({ id: r.id, intervention });
       setAnalyzing(false);
       setStep(3);
-    }, ANALYZE_LATENCY_MS);
+    }, analyzeLatencyMs);
   }
 
   function handleIntervention(accepted: boolean) {
@@ -140,7 +147,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   1 / 3 · biggest friction
                 </Label>
-                {Q1_OPTIONS.map((o) => (
+                {q1Options.map((o) => (
                   <button
                     key={o.id}
                     onClick={() => { setQ1(o.id); setStep(1); }}
@@ -157,7 +164,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   2 / 3 · what specifically?
                 </Label>
-                {Q2_BY_FRICTION[choiceFriction].map((opt) => (
+                {getQ2Options(surveyQuestions, choiceFriction).map((opt) => (
                   <button
                     key={opt}
                     onClick={() => { setQ2(opt); setStep(2); }}

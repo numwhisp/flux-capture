@@ -6,7 +6,7 @@ import type {
   SurveyResponse,
 } from "./types";
 import { initialState } from "./seed";
-import { interventionFor } from "./intervention";
+import { resolveInterventionFromRules } from "./intervention";
 import { fetchAll, seedIfEmpty, sync } from "./supabase-sync";
 
 // Only UI-only / device-local fields are persisted to localStorage. All
@@ -15,7 +15,7 @@ const STORAGE_KEY = "retention-engine-ui-v3";
 
 type LocalUiState = Pick<
   RetentionState,
-  "currentUserId" | "modalImpressions" | "modalDismissals" | "ignoreMode" | "teamDiscountActivated"
+  "currentUserId"
 >;
 
 let state: RetentionState = load();
@@ -23,14 +23,20 @@ const listeners = new Set<() => void>();
 
 function load(): RetentionState {
   // Start from an EMPTY domain state — Supabase hydration fills it in. Only
-  // UI-only fields are restored from localStorage so the experience survives
-  // a page reload without races against the network round-trip.
+  // currentUserId is restored from localStorage so the active persona persists
+  // across reloads; everything else (counters, ignore_mode, entitlements) is
+  // server-authoritative now.
   const empty: RetentionState = {
     ...initialState,
     users: [],
     responses: [],
     invites: [],
     academyProgress: {},
+    modalImpressions: 0,
+    modalDismissals: 0,
+    ignoreMode: false,
+    teamDiscountActivated: false,
+    entitlements: {},
   };
   if (typeof window === "undefined") return empty;
   try {
@@ -48,10 +54,6 @@ function persist() {
   try {
     const ui: LocalUiState = {
       currentUserId: state.currentUserId,
-      modalImpressions: state.modalImpressions,
-      modalDismissals: state.modalDismissals,
-      ignoreMode: state.ignoreMode,
-      teamDiscountActivated: state.teamDiscountActivated,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ui));
   } catch {
@@ -96,6 +98,17 @@ async function hydrate() {
       responses: data.responses,
       invites: data.invites,
       academyProgress: data.academyProgress,
+      surveyQuestions: data.surveyQuestions,
+      interventionRules: data.interventionRules,
+      cohortConfig: data.cohortConfig,
+      baseline: data.baseline,
+      experimentConfig: data.experimentConfig,
+      academySteps: data.academySteps,
+      entitlements: data.entitlements,
+      ignoreMode: data.experimentConfig.ignoreMode,
+      modalImpressions: data.modalImpressions,
+      modalDismissals: data.modalDismissals,
+      teamDiscountActivated: data.entitlements[s.currentUserId] ?? false,
     }));
   } catch (err) {
     console.error("[retention-store] hydrate failed", err);
@@ -115,7 +128,11 @@ if (typeof window !== "undefined") {
 
 export const actions = {
   setCurrentUser(id: string) {
-    setState((s) => ({ ...s, currentUserId: id }));
+    setState((s) => ({
+      ...s,
+      currentUserId: id,
+      teamDiscountActivated: s.entitlements[id] ?? false,
+    }));
   },
   setDay(id: string, day: number) {
     let updated: ReturnType<typeof Object> | undefined;
@@ -131,13 +148,22 @@ export const actions = {
     if (updated) sync.upsertUser(updated as never);
   },
   recordImpression() {
+    const userId = state.currentUserId;
     setState((s) => ({ ...s, modalImpressions: s.modalImpressions + 1 }));
+    sync.recordModalEvent(userId || null, "impression", null);
   },
   recordDismissal() {
+    const userId = state.currentUserId;
     setState((s) => ({ ...s, modalDismissals: s.modalDismissals + 1 }));
+    sync.recordModalEvent(userId || null, "dismissal", null);
   },
   setIgnoreMode(v: boolean) {
-    setState((s) => ({ ...s, ignoreMode: v }));
+    setState((s) => ({
+      ...s,
+      ignoreMode: v,
+      experimentConfig: { ...s.experimentConfig, ignoreMode: v },
+    }));
+    sync.setIgnoreMode(v);
   },
   inviteTeammate(email: string) {
     const inviter = state.currentUserId;
@@ -149,7 +175,13 @@ export const actions = {
     sync.deleteInvite(email);
   },
   acceptTeamDiscount() {
-    setState((s) => ({ ...s, teamDiscountActivated: true }));
+    const userId = state.currentUserId;
+    setState((s) => ({
+      ...s,
+      teamDiscountActivated: true,
+      entitlements: { ...s.entitlements, [userId]: true },
+    }));
+    if (userId) sync.setTeamDiscountActivated(userId, true);
   },
   setAcademyStep(id: string, done: boolean) {
     const userId = state.currentUserId;
@@ -169,8 +201,13 @@ export const actions = {
    */
   simulateSessions(n: number) {
     const generated: SurveyResponse[] = [];
+    const impressionEvents: { userId: string | null; cohort: Cohort | null }[] = [];
     setState((s) => {
       if (s.ignoreMode) {
+        // Record ignored-session impressions+dismissals
+        for (let i = 0; i < n; i++) {
+          impressionEvents.push({ userId: s.users[i % Math.max(1, s.users.length)]?.id ?? null, cohort: null });
+        }
         return {
           ...s,
           modalImpressions: s.modalImpressions + n,
@@ -183,7 +220,7 @@ export const actions = {
       for (let i = 0; i < n; i++) {
         const friction = frictions[i % 3];
         const cohort = cohorts[i % 2];
-        const intervention = interventionFor(friction, cohort);
+        const intervention = resolveInterventionFromRules(s.interventionRules, friction, cohort);
         newResponses.push({
           id: crypto.randomUUID(),
           userId: s.users[i % s.users.length].id,
@@ -197,6 +234,7 @@ export const actions = {
           interventionAccepted: Math.random() < 0.65,
           createdAt: Date.now() - i * 1000,
         });
+        impressionEvents.push({ userId: newResponses[newResponses.length - 1].userId, cohort });
       }
       generated.push(...newResponses);
       return {
@@ -206,6 +244,15 @@ export const actions = {
       };
     });
     if (generated.length > 0) sync.insertResponses(generated);
+    // Fire impression events for every simulated session (and dismissals when ignore mode).
+    for (const e of impressionEvents) {
+      sync.recordModalEvent(e.userId, "impression", e.cohort);
+    }
+    if (state.ignoreMode) {
+      for (const e of impressionEvents) sync.recordModalEvent(e.userId, "dismissal", e.cohort);
+    } else {
+      for (const e of impressionEvents) sync.recordModalEvent(e.userId, "submit", e.cohort);
+    }
   },
   submitResponse(r: Omit<SurveyResponse, "id" | "createdAt">) {
     const response: SurveyResponse = {
@@ -246,6 +293,7 @@ export const actions = {
       modalDismissals: 0,
       ignoreMode: false,
       teamDiscountActivated: false,
+      entitlements: {},
     }));
     await sync.resetAll();
     hydratePromise = undefined;

@@ -1,15 +1,25 @@
-import type { FrictionType, RetentionState, SurveyResponse } from "./types";
+import type {
+  Baseline,
+  CohortConfigEntry,
+  ExperimentConfig,
+  FrictionType,
+  RetentionState,
+  SurveyResponse,
+} from "./types";
+import {
+  FALLBACK_BASELINE,
+  FALLBACK_COHORT_CONFIG,
+  FALLBACK_EXPERIMENT_CONFIG,
+} from "./seed";
 
-// Hardcoded baseline targets from the validation brief — these never change at runtime.
-export const BASELINE = {
-  ninetyDayChurn: 0.30,
-  activationRate: 0.22,
-  seatsPerAccount: 1.4,
-  timeToFirstValueDays: 6.2,
-};
-
-export const KILL_SWITCH_THRESHOLD = 0.10;
-export const ENGAGEMENT_TARGET = 0.25;
+/**
+ * Constants kept for backward compatibility and as the SSR fallback before
+ * Supabase hydration completes. The runtime values come from `org_baselines`
+ * and `experiment_config` via the store.
+ */
+export const BASELINE: Baseline = FALLBACK_BASELINE;
+export const KILL_SWITCH_THRESHOLD = FALLBACK_EXPERIMENT_CONFIG.killSwitchThreshold;
+export const ENGAGEMENT_TARGET = FALLBACK_EXPERIMENT_CONFIG.engagementTarget;
 
 export interface AnalyticsSnapshot {
   responses: SurveyResponse[];
@@ -28,16 +38,24 @@ export interface AnalyticsSnapshot {
   killSwitch: boolean;
 }
 
+export interface AnalyticsInput {
+  responses: SurveyResponse[];
+  modalImpressions: number;
+  modalDismissals: number;
+  ignoreMode: boolean;
+  baseline?: Baseline;
+  experimentConfig?: ExperimentConfig;
+}
+
 /**
- * Pure analytics derivation from the live store. Pulled out of the admin
- * component so the calculation can be tested + reused independently of UI.
+ * Pure analytics derivation. Accepts either the full RetentionState or just
+ * the analytics-relevant slice, so callers don't need to fabricate a state.
  */
-export function deriveAnalytics(s: RetentionState): AnalyticsSnapshot {
+export function deriveAnalytics(s: AnalyticsInput | RetentionState): AnalyticsSnapshot {
+  const baseline = s.baseline ?? FALLBACK_BASELINE;
+  const cfg = s.experimentConfig ?? FALLBACK_EXPERIMENT_CONFIG;
   const totalTargeted = s.modalImpressions || 1;
   const rawEngagementRate = s.responses.length / totalTargeted;
-  // When the PM flips Ignore Mode to 100% we treat the live feed as void:
-  // engagement is force-clamped below the kill threshold and the response
-  // stream is suppressed in the UI (the underlying store is preserved).
   const engagementRate = s.ignoreMode ? Math.min(rawEngagementRate, 0.08) : rawEngagementRate;
   const acceptedCount = s.responses.filter((r) => r.interventionAccepted === true).length;
   const actionability = s.responses.length ? acceptedCount / s.responses.length : 0;
@@ -46,11 +64,11 @@ export function deriveAnalytics(s: RetentionState): AnalyticsSnapshot {
   s.responses.forEach((r) => { counts[r.friction]++; });
   const totalFriction = s.responses.length || 1;
 
-  const baseline = Array.from({ length: 13 }, (_, i) => 100 - (BASELINE.ninetyDayChurn * 100 * i) / 12);
+  const baselineCurve = Array.from({ length: 13 }, (_, i) => 100 - (baseline.ninetyDayChurn * 100 * i) / 12);
   const lift = Math.min(15, acceptedCount * 0.4);
-  const treatment = baseline.map((v, i) => v + (lift * i) / 12);
+  const treatment = baselineCurve.map((v, i) => v + (lift * i) / 12);
 
-  const killSwitch = s.ignoreMode || (s.modalImpressions >= 20 && engagementRate < KILL_SWITCH_THRESHOLD);
+  const killSwitch = s.ignoreMode || (s.modalImpressions >= 20 && engagementRate < cfg.killSwitchThreshold);
 
   return {
     responses: s.responses,
@@ -63,17 +81,29 @@ export function deriveAnalytics(s: RetentionState): AnalyticsSnapshot {
     actionability,
     counts,
     totalFriction,
-    baseline,
+    baseline: baselineCurve,
     treatment,
     lift,
     killSwitch,
   };
 }
 
-/** Trigger window: Day 13–16 (cohort day14) and Day 44–47 (cohort day45). */
+/**
+ * Fallback (hardcoded) cohort resolver. Used in SSR / before hydration.
+ * Prefer `cohortForState(state.cohortConfig, day)` in components reading the
+ * live store so PMs can re-tune the windows from `cohort_config`.
+ */
 export function cohortFor(day: number): "day14" | "day45" | null {
-  if (day >= 13 && day <= 16) return "day14";
-  if (day >= 44 && day <= 47) return "day45";
+  return cohortForConfig(FALLBACK_COHORT_CONFIG, day);
+}
+
+export function cohortForConfig(
+  config: CohortConfigEntry[],
+  day: number,
+): "day14" | "day45" | null {
+  for (const c of config) {
+    if (c.active && day >= c.minDay && day <= c.maxDay) return c.name;
+  }
   return null;
 }
 

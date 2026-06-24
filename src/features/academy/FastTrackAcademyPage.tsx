@@ -2,14 +2,14 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, GraduationCap, AlertOctagon, Sparkles, RefreshCw } from "lucide-react";
 import { actions, useRetentionStore } from "@/features/retention";
-import { ACADEMY_STEPS } from "./steps";
 import { AcademyStepRow } from "./AcademyStepRow";
 
 // Screen 5 — Fast-Track Interactive Academy.
 export function FastTrackAcademyPage() {
   const progress = useRetentionStore((s) => s.academyProgress);
-  const done = ACADEMY_STEPS.filter((s) => progress[s.id]).length;
-  const pct = (done / ACADEMY_STEPS.length) * 100;
+  const steps = useRetentionStore((s) => s.academySteps);
+  const done = steps.filter((s) => progress[s.id]).length;
+  const pct = steps.length ? (done / steps.length) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,12 +42,12 @@ export function FastTrackAcademyPage() {
                 />
               </div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground tabular-nums">
-                {done} / {ACADEMY_STEPS.length}
+                {done} / {steps.length}
               </span>
             </div>
 
             <ul className="mt-6 divide-y divide-border rounded-sm border border-border bg-background/30">
-              {ACADEMY_STEPS.map((s) => (
+              {steps.map((s) => (
                 <AcademyStepRow key={s.id} step={s} done={!!progress[s.id]} />
               ))}
             </ul>
@@ -62,11 +62,11 @@ export function FastTrackAcademyPage() {
               <Button
                 size="sm"
                 className="h-8 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-                disabled={done < ACADEMY_STEPS.length}
+                disabled={done < steps.length}
                 asChild
               >
                 <Link to="/dashboard">
-                  {done === ACADEMY_STEPS.length ? "Finish · back to workspace" : "Complete steps to continue"}
+                  {done === steps.length && steps.length > 0 ? "Finish · back to workspace" : "Complete steps to continue"}
                 </Link>
               </Button>
             </div>

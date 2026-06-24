@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Play } from "lucide-react";
-import { actions, KILL_SWITCH_THRESHOLD } from "@/features/retention";
+import { actions } from "@/features/retention";
 
 export function UserSimulator({
-  ignoreMode, killSwitch, engagementRate,
-}: { ignoreMode: boolean; killSwitch: boolean; engagementRate: number }) {
+  ignoreMode, killSwitch, engagementRate, killSwitchThreshold = 0.10,
+}: { ignoreMode: boolean; killSwitch: boolean; engagementRate: number; killSwitchThreshold?: number }) {
   return (
     <div className={`rounded-sm border bg-card p-5 transition-colors ${killSwitch ? "border-rose-500/40" : "border-border"}`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -16,7 +16,7 @@ export function UserSimulator({
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             Fire automated user sessions against the live engine. Toggle ignore-mode to verify
-            the kill switch trips when engagement collapses below {Math.round(KILL_SWITCH_THRESHOLD * 100)}%.
+            the kill switch trips when engagement collapses below {Math.round(killSwitchThreshold * 100)}%.
           </p>
         </div>
         <div className="flex items-center gap-3 rounded-sm border border-border bg-background/40 px-3 py-2">

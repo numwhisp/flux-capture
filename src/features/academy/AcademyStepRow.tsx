@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertOctagon, LifeBuoy } from "lucide-react";
-import { actions } from "@/features/retention";
-import type { AcademyStep } from "./steps";
+import { actions, type AcademyStepRecord } from "@/features/retention";
 
-export function AcademyStepRow({ step, done }: { step: AcademyStep; done: boolean }) {
+export function AcademyStepRow({ step, done }: { step: AcademyStepRecord; done: boolean }) {
   // Salesforce row resolves to an inline integration-failure alert rather than
   // throwing to the route error boundary — the rest of the checklist must stay
   // interactive while the pipeline error is surfaced.
