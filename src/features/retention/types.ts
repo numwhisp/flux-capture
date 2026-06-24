@@ -43,4 +43,62 @@ export interface RetentionState {
   invites: { email: string; status: "pending" | "accepted" }[];
   teamDiscountActivated: boolean;
   academyProgress: Record<string, boolean>;
+  // ---- DB-driven config (hydrated from Supabase) ----
+  surveyQuestions: SurveyQuestion[];
+  interventionRules: InterventionRule[];
+  cohortConfig: CohortConfigEntry[];
+  baseline: Baseline;
+  experimentConfig: ExperimentConfig;
+  academySteps: AcademyStepRecord[];
+  /** userId → teamDiscountActivated */
+  entitlements: Record<string, boolean>;
+}
+
+export interface SurveyQuestion {
+  id: string;
+  cohort: Cohort | null;
+  questionType: "friction_pick" | "friction_drilldown";
+  friction: FrictionType | null;
+  order: number;
+  prompt: string;
+  /** For friction_pick: Array<{id,label,friction}>. For friction_drilldown: string[]. */
+  options: unknown;
+  active: boolean;
+}
+
+export interface InterventionRule {
+  cohort: Cohort;
+  friction: FrictionType;
+  action: InterventionAction;
+  label: string;
+  active: boolean;
+}
+
+export interface CohortConfigEntry {
+  name: Cohort;
+  minDay: number;
+  maxDay: number;
+  active: boolean;
+}
+
+export interface Baseline {
+  ninetyDayChurn: number;
+  activationRate: number;
+  seatsPerAccount: number;
+  timeToFirstValueDays: number;
+}
+
+export interface ExperimentConfig {
+  killSwitchThreshold: number;
+  engagementTarget: number;
+  analyzeLatencyMs: number;
+  ignoreMode: boolean;
+}
+
+export interface AcademyStepRecord {
+  id: string;
+  label: string;
+  sub: string;
+  order: number;
+  failing: boolean;
 }
