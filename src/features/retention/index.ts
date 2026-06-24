@@ -2,4 +2,4 @@ export * from "./types";
 export * from "./intervention";
 export * from "./classifier";
 export * from "./metrics";
-export { useRetentionStore, actions, subscribe, getState } from "./store";
+export { useRetentionStore, actions, subscribe, getState, ensureHydrated } from "./store";
