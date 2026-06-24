@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft, RotateCcw, Layers, MessageSquare, TrendingDown, AlertOctagon, Zap,
@@ -20,8 +21,26 @@ import { ResponseStream } from "./components/ResponseStream";
 // PM analytics view (not a user-facing screen) — surfaces every signal
 // the retention store collects.
 export function AdminAnalyticsPage() {
-  const snap = useRetentionStore(deriveAnalytics);
+  // Select raw store slices, then derive — keeps useSyncExternalStore snapshots stable.
+  const responsesRaw = useRetentionStore((s) => s.responses);
+  const impressionsRaw = useRetentionStore((s) => s.modalImpressions);
+  const dismissalsRaw = useRetentionStore((s) => s.modalDismissals);
+  const ignoreModeRaw = useRetentionStore((s) => s.ignoreMode);
   const users = useRetentionStore((s) => s.users);
+  const snap = useMemo(
+    () => deriveAnalytics({
+      users,
+      responses: responsesRaw,
+      modalImpressions: impressionsRaw,
+      modalDismissals: dismissalsRaw,
+      ignoreMode: ignoreModeRaw,
+      currentUserId: "",
+      invites: [],
+      teamDiscountActivated: false,
+      academyProgress: {},
+    }),
+    [users, responsesRaw, impressionsRaw, dismissalsRaw, ignoreModeRaw],
+  );
   const {
     responses, impressions, dismissals, ignoreMode,
     engagementRate, acceptedCount, actionability,
