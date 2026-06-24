@@ -48,7 +48,12 @@ function AdminRoute() {
   const ignoreMode = useRetentionStore((s) => s.ignoreMode);
 
   const totalTargeted = impressions || 1;
-  const engagementRate = responses.length / totalTargeted;
+  // When the PM flips Ignore Mode to 100% we treat the live feed as void:
+  // engagement is force-clamped below the kill threshold and the response
+  // stream is suppressed in the UI (the underlying store is preserved so
+  // toggling back restores the data).
+  const rawEngagementRate = responses.length / totalTargeted;
+  const engagementRate = ignoreMode ? Math.min(rawEngagementRate, 0.08) : rawEngagementRate;
   const accepted = responses.filter((r) => r.interventionAccepted === true).length;
   const actionability = responses.length ? accepted / responses.length : 0;
 
@@ -60,7 +65,7 @@ function AdminRoute() {
   const lift = Math.min(15, accepted * 0.4);
   const treatment = baseline.map((v, i) => v + (lift * i) / 12);
 
-  const killSwitch = impressions >= 20 && engagementRate < KILL_SWITCH_THRESHOLD;
+  const killSwitch = ignoreMode || (impressions >= 20 && engagementRate < KILL_SWITCH_THRESHOLD);
 
   return (
     <div className="min-h-screen bg-background">
@@ -193,9 +198,27 @@ function AdminRoute() {
         <div className="rounded-sm border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
             <h2 className="text-sm font-semibold">Response stream</h2>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{responses.length} total</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {ignoreMode ? "feed suppressed" : `${responses.length} total`}
+            </span>
           </div>
-          {responses.length === 0 ? (
+          {ignoreMode ? (
+            <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-rose-500/40 bg-rose-500/10 text-rose-300">
+                <AlertOctagon className="h-5 w-5" />
+              </div>
+              <h3 className="mt-4 text-sm font-semibold text-foreground">
+                No actionable feedback captured
+              </h3>
+              <p className="mt-1.5 max-w-md text-xs text-muted-foreground">
+                100% of simulated users have ignored or actively closed the intervention widget.
+                Turn off Ignore Mode in the simulator above to resume live tagging.
+              </p>
+              <div className="mt-4 flex items-center gap-2 rounded-sm border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-rose-300">
+                <AlertOctagon className="h-3 w-3" /> Kill switch triggered
+              </div>
+            </div>
+          ) : responses.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-muted-foreground">
               No responses yet. Open the <Link to="/dashboard" className="text-emerald-400 underline">user dashboard</Link> at Day 14 or Day 45.
             </div>

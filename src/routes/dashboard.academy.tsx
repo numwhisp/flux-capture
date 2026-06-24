@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { actions, useRetentionStore } from "@/lib/retention-store";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, GraduationCap, AlertOctagon, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowLeft, GraduationCap, AlertOctagon, Sparkles, RefreshCw, LifeBuoy } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/academy")({
   head: () => ({
@@ -104,27 +104,19 @@ function AcademyOverlay() {
 }
 
 function StepRow({ step, done }: { step: { id: string; label: string; sub: string; failing?: boolean }; done: boolean }) {
-  const [pending, setPending] = useState(false);
-  const [boom, setBoom] = useState<Error | null>(null);
-  if (boom) throw boom;
-
-  useEffect(() => {
-    if (!pending) return;
-    const t = setTimeout(() => {
-      setBoom(new Error("Salesforce integration unreachable (503) — connector misconfigured"));
-    }, 500);
-    return () => clearTimeout(t);
-  }, [pending]);
+  // Salesforce row resolves to an inline integration-failure alert rather than
+  // throwing to the route error boundary — the rest of the checklist must stay
+  // interactive while the pipeline error is surfaced.
+  const [pipelineFailed, setPipelineFailed] = useState(false);
 
   function attempt(next: boolean) {
     if (!next) {
+      if (step.failing) setPipelineFailed(false);
       actions.setAcademyStep(step.id, false);
       return;
     }
-    // Intentional failure path for the Salesforce connector to exercise the
-    // error boundary on this route.
     if (step.failing) {
-      setPending(true);
+      setPipelineFailed(true);
       return;
     }
     actions.setAcademyStep(step.id, true);
@@ -144,14 +136,42 @@ function StepRow({ step, done }: { step: { id: string; label: string; sub: strin
             {step.label}
           </span>
           {step.failing && (
-            <span className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300">
-              flaky
+            <span
+              className={`rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                pipelineFailed
+                  ? "border-rose-500/50 bg-rose-500/10 text-rose-300"
+                  : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+              }`}
+            >
+              {pipelineFailed ? "pipeline failed" : "flaky"}
             </span>
           )}
         </div>
         <p className="mt-0.5 text-[11px] text-muted-foreground">{step.sub}</p>
-        {pending && step.failing && (
-          <p className="mt-1 text-[11px] font-medium text-amber-300">Reaching Salesforce…</p>
+        {pipelineFailed && step.failing && (
+          <div
+            role="alert"
+            className="mt-2 rounded-sm border-2 border-rose-500/60 bg-rose-500/5 p-2.5"
+          >
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-rose-300">
+              <AlertOctagon className="h-3 w-3" /> API connection time-out
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-rose-200">
+              Live pipeline sync failed. We have automatically opened a high-priority support
+              ticket to complete your setup manually.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-sm border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-rose-300">
+                <LifeBuoy className="h-3 w-3" /> Ticket #SF-4827 opened
+              </span>
+              <button
+                onClick={() => setPipelineFailed(false)}
+                className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </li>
