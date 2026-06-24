@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { CheckInModal } from "@/components/CheckInModal";
+import { CheckInWidget } from "@/components/CheckInWidget";
 import { actions, useRetentionStore, type Cohort } from "@/lib/retention-store";
 import { Button } from "@/components/ui/button";
 import { Activity, ArrowLeft, BarChart3, Bell, Inbox, Users } from "lucide-react";
@@ -106,7 +106,7 @@ function DashboardRoute() {
       </div>
 
       {cohort && (
-        <CheckInModal open={open} onOpenChange={setOpen} user={user} cohort={cohort} />
+        <CheckInWidget open={open} onOpenChange={setOpen} user={user} cohort={cohort} />
       )}
     </div>
   );
