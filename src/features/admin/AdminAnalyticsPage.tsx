@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   actions,
   deriveAnalytics,
-  ENGAGEMENT_TARGET,
-  KILL_SWITCH_THRESHOLD,
   sparkFor,
   useRetentionStore,
   type FrictionType,
@@ -27,25 +25,25 @@ export function AdminAnalyticsPage() {
   const dismissalsRaw = useRetentionStore((s) => s.modalDismissals);
   const ignoreModeRaw = useRetentionStore((s) => s.ignoreMode);
   const users = useRetentionStore((s) => s.users);
+  const baseline = useRetentionStore((s) => s.baseline);
+  const experimentConfig = useRetentionStore((s) => s.experimentConfig);
   const snap = useMemo(
     () => deriveAnalytics({
-      users,
       responses: responsesRaw,
       modalImpressions: impressionsRaw,
       modalDismissals: dismissalsRaw,
       ignoreMode: ignoreModeRaw,
-      currentUserId: "",
-      invites: [],
-      teamDiscountActivated: false,
-      academyProgress: {},
+      baseline,
+      experimentConfig,
     }),
-    [users, responsesRaw, impressionsRaw, dismissalsRaw, ignoreModeRaw],
+    [responsesRaw, impressionsRaw, dismissalsRaw, ignoreModeRaw, baseline, experimentConfig],
   );
   const {
     responses, impressions, dismissals, ignoreMode,
     engagementRate, acceptedCount, actionability,
-    counts, totalFriction, baseline, treatment, lift, killSwitch,
+    counts, totalFriction, baseline: baselineCurve, treatment, lift, killSwitch,
   } = snap;
+  const { killSwitchThreshold, engagementTarget } = experimentConfig;
 
   return (
     <div className="min-h-screen bg-background">
