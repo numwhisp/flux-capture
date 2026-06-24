@@ -46,6 +46,129 @@ export type Database = {
           },
         ]
       }
+      academy_steps: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          is_failing: boolean
+          label: string
+          order: number
+          step_id: string
+          sub: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          is_failing?: boolean
+          label: string
+          order: number
+          step_id: string
+          sub?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          is_failing?: boolean
+          label?: string
+          order?: number
+          step_id?: string
+          sub?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cohort_config: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          max_day: number
+          min_day: number
+          name: Database["public"]["Enums"]["cohort_type"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          max_day: number
+          min_day: number
+          name: Database["public"]["Enums"]["cohort_type"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          max_day?: number
+          min_day?: number
+          name?: Database["public"]["Enums"]["cohort_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      experiment_config: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      intervention_rules: {
+        Row: {
+          action: Database["public"]["Enums"]["intervention_action"]
+          active: boolean
+          cohort: Database["public"]["Enums"]["cohort_type"]
+          created_at: string
+          friction: Database["public"]["Enums"]["friction_type"]
+          id: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["intervention_action"]
+          active?: boolean
+          cohort: Database["public"]["Enums"]["cohort_type"]
+          created_at?: string
+          friction: Database["public"]["Enums"]["friction_type"]
+          id?: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["intervention_action"]
+          active?: boolean
+          cohort?: Database["public"]["Enums"]["cohort_type"]
+          created_at?: string
+          friction?: Database["public"]["Enums"]["friction_type"]
+          id?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invites: {
         Row: {
           created_at: string
@@ -77,6 +200,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      modal_events: {
+        Row: {
+          cohort: Database["public"]["Enums"]["cohort_type"] | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["modal_event_type"]
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          cohort?: Database["public"]["Enums"]["cohort_type"] | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["modal_event_type"]
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          cohort?: Database["public"]["Enums"]["cohort_type"] | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["modal_event_type"]
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      org_baselines: {
+        Row: {
+          activation_rate: number
+          created_at: string
+          id: string
+          ninety_day_churn: number
+          seats_per_account: number
+          time_to_first_value_days: number
+          updated_at: string
+        }
+        Insert: {
+          activation_rate: number
+          created_at?: string
+          id?: string
+          ninety_day_churn: number
+          seats_per_account: number
+          time_to_first_value_days: number
+          updated_at?: string
+        }
+        Update: {
+          activation_rate?: number
+          created_at?: string
+          id?: string
+          ninety_day_churn?: number
+          seats_per_account?: number
+          time_to_first_value_days?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       sim_users: {
         Row: {
@@ -116,6 +293,45 @@ export type Database = {
           role?: string
           seats_active?: number
           surveyed?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      survey_questions: {
+        Row: {
+          active: boolean
+          cohort: Database["public"]["Enums"]["cohort_type"] | null
+          created_at: string
+          friction: Database["public"]["Enums"]["friction_type"] | null
+          id: string
+          options: Json
+          order: number
+          prompt: string
+          question_type: Database["public"]["Enums"]["survey_question_type"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          cohort?: Database["public"]["Enums"]["cohort_type"] | null
+          created_at?: string
+          friction?: Database["public"]["Enums"]["friction_type"] | null
+          id?: string
+          options?: Json
+          order: number
+          prompt: string
+          question_type: Database["public"]["Enums"]["survey_question_type"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          cohort?: Database["public"]["Enums"]["cohort_type"] | null
+          created_at?: string
+          friction?: Database["public"]["Enums"]["friction_type"] | null
+          id?: string
+          options?: Json
+          order?: number
+          prompt?: string
+          question_type?: Database["public"]["Enums"]["survey_question_type"]
           updated_at?: string
         }
         Relationships: []
@@ -170,6 +386,33 @@ export type Database = {
           },
         ]
       }
+      user_entitlements: {
+        Row: {
+          created_at: string
+          discount_activated_at: string | null
+          id: string
+          team_discount_activated: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          discount_activated_at?: string | null
+          id?: string
+          team_discount_activated?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          discount_activated_at?: string | null
+          id?: string
+          team_discount_activated?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -187,6 +430,8 @@ export type Database = {
         | "send_roi_report"
         | "no_action"
       invite_status: "pending" | "accepted"
+      modal_event_type: "impression" | "dismissal" | "submit"
+      survey_question_type: "friction_pick" | "friction_drilldown"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -324,6 +569,8 @@ export const Constants = {
         "no_action",
       ],
       invite_status: ["pending", "accepted"],
+      modal_event_type: ["impression", "dismissal", "submit"],
+      survey_question_type: ["friction_pick", "friction_drilldown"],
     },
   },
 } as const
