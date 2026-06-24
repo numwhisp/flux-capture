@@ -77,7 +77,7 @@ export function AdminAnalyticsPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Validation dashboard</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Live tagging against the discovery baseline. Kill-switch fires below {Math.round(KILL_SWITCH_THRESHOLD * 100)}% engagement.
+              Live tagging against the discovery baseline. Kill-switch fires below {Math.round(killSwitchThreshold * 100)}% engagement.
             </p>
           </div>
           {killSwitch && (
@@ -96,10 +96,10 @@ export function AdminAnalyticsPage() {
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Source: validation brief</span>
           </div>
           <div className="grid grid-cols-2 divide-x divide-border sm:grid-cols-4">
-            <BaselineCell label="90-day churn" value="30%" tone="bad" />
-            <BaselineCell label="Activation rate" value="22%" tone="warn" />
-            <BaselineCell label="Active seats / account" value="1.4" tone="warn" />
-            <BaselineCell label="Time-to-first-value" value="6.2 days" tone="warn" />
+            <BaselineCell label="90-day churn"           value={`${Math.round(baseline.ninetyDayChurn * 100)}%`}      tone="bad"  />
+            <BaselineCell label="Activation rate"        value={`${Math.round(baseline.activationRate * 100)}%`}      tone="warn" />
+            <BaselineCell label="Active seats / account" value={baseline.seatsPerAccount.toFixed(1)}                  tone="warn" />
+            <BaselineCell label="Time-to-first-value"    value={`${baseline.timeToFirstValueDays.toFixed(1)} days`}   tone="warn" />
           </div>
         </div>
 
@@ -108,8 +108,8 @@ export function AdminAnalyticsPage() {
             label="Engagement rate"
             value={`${Math.round(engagementRate * 100)}%`}
             sub={`${responses.length} responses · ${impressions} impressions`}
-            status={killSwitch ? "fail" : engagementRate >= ENGAGEMENT_TARGET ? "pass" : engagementRate >= 0.15 ? "watch" : "fail"}
-            target={`Pass ≥ ${Math.round(ENGAGEMENT_TARGET * 100)}% · Kill < ${Math.round(KILL_SWITCH_THRESHOLD * 100)}%`}
+            status={killSwitch ? "fail" : engagementRate >= engagementTarget ? "pass" : engagementRate >= 0.15 ? "watch" : "fail"}
+            target={`Pass ≥ ${Math.round(engagementTarget * 100)}% · Kill < ${Math.round(killSwitchThreshold * 100)}%`}
             icon={<MessageSquare className="h-3.5 w-3.5" />}
           />
           <KpiCard
@@ -141,7 +141,7 @@ export function AdminAnalyticsPage() {
                 <LegendDot className="bg-emerald-400" /> Treatment
               </div>
             </div>
-            <RetentionChart baseline={baseline} treatment={treatment} />
+            <RetentionChart baseline={baselineCurve} treatment={treatment} />
           </div>
 
           <div className="rounded-sm border border-border bg-card p-5 lg:col-span-2">
