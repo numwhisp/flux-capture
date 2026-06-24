@@ -14,7 +14,162 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      academy_progress: {
+        Row: {
+          done: boolean
+          id: string
+          step_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          done?: boolean
+          id?: string
+          step_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          done?: boolean
+          id?: string
+          step_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "sim_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invites: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          inviter_user_id: string
+          status: Database["public"]["Enums"]["invite_status"]
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          inviter_user_id: string
+          status?: Database["public"]["Enums"]["invite_status"]
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          inviter_user_id?: string
+          status?: Database["public"]["Enums"]["invite_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invites_inviter_user_id_fkey"
+            columns: ["inviter_user_id"]
+            isOneToOne: false
+            referencedRelation: "sim_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sim_users: {
+        Row: {
+          activated: boolean
+          churned: boolean
+          company: string
+          created_at: string
+          day_in_journey: number
+          id: string
+          name: string
+          role: string
+          seats_active: number
+          surveyed: boolean
+          updated_at: string
+        }
+        Insert: {
+          activated?: boolean
+          churned?: boolean
+          company: string
+          created_at?: string
+          day_in_journey?: number
+          id: string
+          name: string
+          role: string
+          seats_active?: number
+          surveyed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          activated?: boolean
+          churned?: boolean
+          company?: string
+          created_at?: string
+          day_in_journey?: number
+          id?: string
+          name?: string
+          role?: string
+          seats_active?: number
+          surveyed?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      survey_responses: {
+        Row: {
+          cohort: Database["public"]["Enums"]["cohort_type"]
+          created_at: string
+          free_text: string
+          friction: Database["public"]["Enums"]["friction_type"]
+          id: string
+          intervention: Database["public"]["Enums"]["intervention_action"]
+          intervention_accepted: boolean | null
+          q1: string
+          q2: string
+          q3: string
+          user_id: string
+        }
+        Insert: {
+          cohort: Database["public"]["Enums"]["cohort_type"]
+          created_at?: string
+          free_text?: string
+          friction: Database["public"]["Enums"]["friction_type"]
+          id?: string
+          intervention: Database["public"]["Enums"]["intervention_action"]
+          intervention_accepted?: boolean | null
+          q1: string
+          q2: string
+          q3: string
+          user_id: string
+        }
+        Update: {
+          cohort?: Database["public"]["Enums"]["cohort_type"]
+          created_at?: string
+          free_text?: string
+          friction?: Database["public"]["Enums"]["friction_type"]
+          id?: string
+          intervention?: Database["public"]["Enums"]["intervention_action"]
+          intervention_accepted?: boolean | null
+          q1?: string
+          q2?: string
+          q3?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_responses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "sim_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +178,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      cohort_type: "day14" | "day45"
+      friction_type: "usability" | "value" | "admin"
+      intervention_action:
+        | "book_cs_call"
+        | "unlock_team_discount"
+        | "send_tutorial"
+        | "send_roi_report"
+        | "no_action"
+      invite_status: "pending" | "accepted"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +313,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      cohort_type: ["day14", "day45"],
+      friction_type: ["usability", "value", "admin"],
+      intervention_action: [
+        "book_cs_call",
+        "unlock_team_discount",
+        "send_tutorial",
+        "send_roi_report",
+        "no_action",
+      ],
+      invite_status: ["pending", "accepted"],
+    },
   },
 } as const
