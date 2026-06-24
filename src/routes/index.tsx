@@ -67,9 +67,9 @@ function Landing() {
         <dl className="mt-12 grid grid-cols-2 gap-6 border-t border-border pt-8 sm:grid-cols-4">
           {[
             ["30%", "90-day churn"],
-            ["22%", "Week-one activation"],
+            ["22%", "Activation rate"],
+            ["1.4", "Active seats / account"],
             ["6.2d", "Time-to-first-value"],
-            ["$1.1M", "ARR at risk"],
           ].map(([v, l]) => (
             <div key={l}>
               <dt className="text-xs uppercase tracking-wide text-muted-foreground">{l}</dt>
