@@ -105,6 +105,16 @@ function AcademyOverlay() {
 
 function StepRow({ step, done }: { step: { id: string; label: string; sub: string; failing?: boolean }; done: boolean }) {
   const [pending, setPending] = useState(false);
+  const [boom, setBoom] = useState<Error | null>(null);
+  if (boom) throw boom;
+
+  useEffect(() => {
+    if (!pending) return;
+    const t = setTimeout(() => {
+      setBoom(new Error("Salesforce integration unreachable (503) — connector misconfigured"));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [pending]);
 
   function attempt(next: boolean) {
     if (!next) {
@@ -115,9 +125,6 @@ function StepRow({ step, done }: { step: { id: string; label: string; sub: strin
     // error boundary on this route.
     if (step.failing) {
       setPending(true);
-      setTimeout(() => {
-        throw new Error("Salesforce integration unreachable (503) — connector misconfigured");
-      }, 500);
       return;
     }
     actions.setAcademyStep(step.id, true);

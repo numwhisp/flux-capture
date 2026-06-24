@@ -13,6 +13,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardTeamRouteImport } from './routes/dashboard.team'
+import { Route as DashboardAcademyRouteImport } from './routes/dashboard.academy'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
@@ -34,17 +35,24 @@ const DashboardTeamRoute = DashboardTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardAcademyRoute = DashboardAcademyRouteImport.update({
+  id: '/academy',
+  path: '/academy',
+  getParentRoute: () => DashboardRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/academy': typeof DashboardAcademyRoute
   '/dashboard/team': typeof DashboardTeamRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/academy': typeof DashboardAcademyRoute
   '/dashboard/team': typeof DashboardTeamRoute
 }
 export interface FileRoutesById {
@@ -52,14 +60,26 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/academy': typeof DashboardAcademyRoute
   '/dashboard/team': typeof DashboardTeamRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/dashboard' | '/dashboard/team'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/dashboard'
+    | '/dashboard/academy'
+    | '/dashboard/team'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/dashboard' | '/dashboard/team'
-  id: '__root__' | '/' | '/admin' | '/dashboard' | '/dashboard/team'
+  to: '/' | '/admin' | '/dashboard' | '/dashboard/academy' | '/dashboard/team'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/dashboard'
+    | '/dashboard/academy'
+    | '/dashboard/team'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -98,14 +118,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTeamRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/academy': {
+      id: '/dashboard/academy'
+      path: '/academy'
+      fullPath: '/dashboard/academy'
+      preLoaderRoute: typeof DashboardAcademyRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
 interface DashboardRouteChildren {
+  DashboardAcademyRoute: typeof DashboardAcademyRoute
   DashboardTeamRoute: typeof DashboardTeamRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAcademyRoute: DashboardAcademyRoute,
   DashboardTeamRoute: DashboardTeamRoute,
 }
 
