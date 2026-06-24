@@ -130,7 +130,12 @@ export function AdminAnalyticsPage() {
           />
         </div>
 
-        <UserSimulator ignoreMode={ignoreMode} killSwitch={killSwitch} engagementRate={engagementRate} />
+        <UserSimulator
+          ignoreMode={ignoreMode}
+          killSwitch={killSwitch}
+          engagementRate={engagementRate}
+          killSwitchThreshold={killSwitchThreshold}
+        />
 
         <div className="grid gap-4 lg:grid-cols-5">
           <div className="rounded-sm border border-border bg-card p-5 lg:col-span-3">
