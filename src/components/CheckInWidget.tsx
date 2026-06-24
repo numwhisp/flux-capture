@@ -59,6 +59,10 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
     id: string;
     intervention: ReturnType<typeof interventionFor>;
   } | null>(null);
+  // Analyzing phase: between Submit click and the post-submission intervention,
+  // we freeze the form and run an 0.8s skeleton so the regex categorizer has a
+  // visible "thinking" beat. Pure UX latency — categorization is sync.
+  const [analyzing, setAnalyzing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,6 +74,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
       setQ3(null);
       setFreeText("");
       setSubmitted(null);
+      setAnalyzing(false);
     }
   }, [open]);
 
@@ -91,20 +96,25 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
 
   function handleSubmit() {
     if (!finalFriction || !q1 || !q2 || q3 === null) return;
-    const intervention = interventionFor(finalFriction, cohort);
-    const r = actions.submitResponse({
-      userId: user.id,
-      cohort,
-      friction: finalFriction,
-      q1: Q1_OPTIONS.find((o) => o.id === q1)!.label,
-      q2,
-      q3: `${q3}/10 likely to renew`,
-      freeText,
-      intervention,
-      interventionAccepted: null,
-    });
-    setSubmitted({ id: r.id, intervention });
-    setStep(3);
+    setAnalyzing(true);
+    // Brief: exactly 800ms skeleton while regex classifier "processes".
+    window.setTimeout(() => {
+      const intervention = interventionFor(finalFriction, cohort);
+      const r = actions.submitResponse({
+        userId: user.id,
+        cohort,
+        friction: finalFriction,
+        q1: Q1_OPTIONS.find((o) => o.id === q1)!.label,
+        q2,
+        q3: `${q3}/10 likely to renew`,
+        freeText,
+        intervention,
+        interventionAccepted: null,
+      });
+      setSubmitted({ id: r.id, intervention });
+      setAnalyzing(false);
+      setStep(3);
+    }, 800);
   }
 
   function handleIntervention(accepted: boolean) {
@@ -217,7 +227,8 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
                     value={freeText}
                     onChange={(e) => setFreeText(e.target.value.slice(0, 280))}
                     placeholder="One sentence is plenty."
-                    className="mt-1.5 min-h-[64px] rounded-sm border-border bg-background/40 text-xs"
+                    disabled={analyzing}
+                    className="mt-1.5 min-h-[64px] rounded-sm border-border bg-background/40 text-xs disabled:opacity-60"
                   />
                   {textFriction && (
                     <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -229,11 +240,28 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
                     </div>
                   )}
                 </div>
+                {analyzing && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-3"
+                  >
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Analyzing friction markers…
+                    </div>
+                    <div className="mt-2.5 space-y-1.5">
+                      <div className="h-2 w-5/6 animate-pulse rounded-sm bg-emerald-500/20" />
+                      <div className="h-2 w-2/3 animate-pulse rounded-sm bg-emerald-500/15" />
+                      <div className="h-2 w-3/4 animate-pulse rounded-sm bg-emerald-500/10" />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             <div className="mt-4 flex items-center justify-between gap-2">
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleDismiss}>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleDismiss} disabled={analyzing}>
                 Not now
               </Button>
               {step === 2 && (
@@ -241,9 +269,15 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
                   size="sm"
                   className="h-7 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400"
                   onClick={handleSubmit}
-                  disabled={q3 === null}
+                  disabled={q3 === null || analyzing}
                 >
-                  Submit
+                  {analyzing ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Analyzing…
+                    </span>
+                  ) : (
+                    "Submit"
+                  )}
                 </Button>
               )}
             </div>
