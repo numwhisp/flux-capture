@@ -368,12 +368,19 @@ function barColor(f: FrictionType) {
 }
 
 function FrictionPill({ friction }: { friction: FrictionType }) {
-  return null as never;
-}
   const cls = friction === "usability" ? "bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/30"
     : friction === "value" ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30"
     : "bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/30";
   return <span className={`rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>{frictionLabel(friction)}</span>;
+}
+
+// Locale-free clock formatter so SSR and client hydrate the same string.
+function formatClock(ts: number): string {
+  const d = new Date(ts);
+  const h = String(d.getUTCHours()).padStart(2, "0");
+  const m = String(d.getUTCMinutes()).padStart(2, "0");
+  const s = String(d.getUTCSeconds()).padStart(2, "0");
+  return `${h}:${m}:${s} UTC`;
 }
 
 // Deterministic 12-point hourly sentiment sparkline seeded off the live count
