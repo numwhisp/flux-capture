@@ -4,14 +4,14 @@ import { ArrowRight, BarChart3, LayoutDashboard } from "lucide-react";
 // Screen 1 — Landing. Hypothesis pitch + entry points to the two prototype views.
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
         <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           Validation prototype · Feasibility test
         </div>
         <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-          The Retention Engine
+          The Retention Engine — Reduce SaaS churn with contextual check-ins
         </h1>
         <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
           A B2B SaaS is losing 30% of new accounts inside 90 days. This prototype tests whether
@@ -69,6 +69,6 @@ export function LandingPage() {
           ))}
         </dl>
       </div>
-    </div>
+    </main>
   );
 }

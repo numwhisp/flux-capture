@@ -99,6 +99,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              name: "Retention Engine",
+              url: "https://flux-capture.lovable.app",
+              description: "Contextual in-app check-ins that surface hidden churn drivers and trigger targeted interventions.",
+            },
+            {
+              "@type": "WebSite",
+              name: "Retention Engine",
+              url: "https://flux-capture.lovable.app",
+              description: "Functional prototype: 3-question contextual check-ins at Day 14 and Day 45 to reduce 90-day SaaS churn.",
+            },
+          ],
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,

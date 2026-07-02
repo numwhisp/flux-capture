@@ -6,6 +6,8 @@ export const Route = createFileRoute("/_authenticated/_admin/admin")({
     meta: [
       { title: "PM analytics — Retention Engine" },
       { name: "description", content: "Live friction tagging, intervention conversion, kill-switch monitor, and simulated 90-day retention curve." },
+      { property: "og:title", content: "PM analytics — Retention Engine" },
+      { property: "og:description", content: "Live friction tagging, intervention conversion, kill-switch monitor, and a simulated 90-day retention curve." },
     ],
   }),
   component: AdminAnalyticsPage,
