@@ -10,8 +10,13 @@ export function FastTrackAcademyPage() {
   const progress = useRetentionStore((s) => s.academyProgress);
   const steps = useRetentionStore((s) => s.academySteps);
   const isHydrating = useRetentionStore((s) => s.isHydrating);
+  // Flaky/optional steps (Salesforce) don't gate completion — users can ship
+  // without a working connector.
+  const requiredSteps = steps.filter((s) => !s.failing);
   const done = steps.filter((s) => progress[s.id]).length;
-  const pct = steps.length ? (done / steps.length) * 100 : 0;
+  const requiredDone = requiredSteps.filter((s) => progress[s.id]).length;
+  const pct = requiredSteps.length ? (requiredDone / requiredSteps.length) * 100 : 0;
+  const canFinish = requiredDone >= requiredSteps.length;
 
   if (isHydrating) {
     return (
@@ -54,7 +59,7 @@ export function FastTrackAcademyPage() {
                 />
               </div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground tabular-nums">
-                {done} / {steps.length}
+                {requiredDone} / {requiredSteps.length} required
               </span>
             </div>
 
@@ -88,11 +93,11 @@ export function FastTrackAcademyPage() {
               <Button
                 size="sm"
                 className="h-8 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-                disabled={done < steps.length}
+                disabled={!canFinish}
                 asChild
               >
                 <Link to="/dashboard">
-                  {done === steps.length && steps.length > 0 ? "Finish · back to workspace" : "Complete steps to continue"}
+                  {canFinish ? "Finish · back to workspace" : "Complete required steps to continue"}
                 </Link>
               </Button>
             </div>
