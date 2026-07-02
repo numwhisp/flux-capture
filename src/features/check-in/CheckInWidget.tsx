@@ -100,7 +100,12 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
         setStep(3);
       } catch (err) {
         // Preserve typed input + selections so the user can retry immediately.
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === "object" && err !== null && "message" in err
+              ? String((err as { message: unknown }).message)
+              : String(err);
         setSubmitError(msg);
         setAnalyzing(false);
         toast.error("Couldn't submit your check-in", { description: msg });
