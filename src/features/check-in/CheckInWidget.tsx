@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +46,10 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   const [analyzing, setAnalyzing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
+  // Synchronous guard against spam clicks: React re-render (which flips the
+  // disabled prop) lags a burst of rapid clicks by a frame or two. The ref
+  // updates immediately so a 5x spam click still fires exactly one insert.
+  const submittingRef = useRef(false);
 
   // DB-driven survey config (with hardcoded fallback during first paint).
   const surveyQuestions = useRetentionStore((s) => s.surveyQuestions);
@@ -58,6 +62,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
       actions.recordImpression();
       setStep(0); setQ1(null); setQ2(null); setQ3(null);
       setFreeText(""); setSubmitted(null); setAnalyzing(false); setSubmitError(null);
+      submittingRef.current = false;
     }
   }, [open]);
 
@@ -79,6 +84,8 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
 
   function handleSubmit() {
     if (!finalFriction || !q1 || !q2 || q3 === null) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setAnalyzing(true);
     setSubmitError(null);
     window.setTimeout(async () => {
@@ -108,6 +115,8 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
               : String(err);
         setSubmitError(msg);
         setAnalyzing(false);
+        // Failed — allow retry.
+        submittingRef.current = false;
         toast.error("Couldn't submit your check-in", { description: msg });
       }
     }, analyzeLatencyMs);
