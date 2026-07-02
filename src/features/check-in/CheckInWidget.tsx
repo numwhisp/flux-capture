@@ -13,7 +13,8 @@ import {
   type FrictionType,
   type SimUser,
 } from "@/features/retention";
-import { Loader2, Sparkles, X } from "lucide-react";
+import { Loader2, Sparkles, X, AlertOctagon } from "lucide-react";
+import { toast } from "sonner";
 import { getAnalyzeLatencyMs, getQ1Options, getQ2Options } from "./questions";
 import { PostSubmissionIntervention } from "./PostSubmissionIntervention";
 
@@ -43,6 +44,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   // we freeze the form and run a skeleton so the regex categorizer has a
   // visible "thinking" beat. Pure UX latency — categorization is sync.
   const [analyzing, setAnalyzing] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // DB-driven survey config (with hardcoded fallback during first paint).
@@ -55,7 +57,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
     if (open) {
       actions.recordImpression();
       setStep(0); setQ1(null); setQ2(null); setQ3(null);
-      setFreeText(""); setSubmitted(null); setAnalyzing(false);
+      setFreeText(""); setSubmitted(null); setAnalyzing(false); setSubmitError(null);
     }
   }, [open]);
 
@@ -78,22 +80,31 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   function handleSubmit() {
     if (!finalFriction || !q1 || !q2 || q3 === null) return;
     setAnalyzing(true);
-    window.setTimeout(() => {
+    setSubmitError(null);
+    window.setTimeout(async () => {
       const intervention = resolveInterventionFromRules(interventionRules, finalFriction, cohort);
-      const r = actions.submitResponse({
-        userId: user.id,
-        cohort,
-        friction: finalFriction,
-        q1: q1Options.find((o) => o.id === q1)?.label ?? q1,
-        q2,
-        q3: `${q3}/10 likely to renew`,
-        freeText,
-        intervention,
-        interventionAccepted: null,
-      });
-      setSubmitted({ id: r.id, intervention });
-      setAnalyzing(false);
-      setStep(3);
+      try {
+        const r = await actions.submitResponse({
+          userId: user.id,
+          cohort,
+          friction: finalFriction,
+          q1: q1Options.find((o) => o.id === q1)?.label ?? q1,
+          q2,
+          q3: `${q3}/10 likely to renew`,
+          freeText,
+          intervention,
+          interventionAccepted: null,
+        });
+        setSubmitted({ id: r.id, intervention });
+        setAnalyzing(false);
+        setStep(3);
+      } catch (err) {
+        // Preserve typed input + selections so the user can retry immediately.
+        const msg = err instanceof Error ? err.message : String(err);
+        setSubmitError(msg);
+        setAnalyzing(false);
+        toast.error("Couldn't submit your check-in", { description: msg });
+      }
     }, analyzeLatencyMs);
   }
 
