@@ -1,15 +1,27 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, GraduationCap, AlertOctagon, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowLeft, GraduationCap, AlertOctagon, Sparkles, RefreshCw, PlayCircle } from "lucide-react";
 import { actions, useRetentionStore } from "@/features/retention";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AcademyStepRow } from "./AcademyStepRow";
 
 // Screen 5 — Fast-Track Interactive Academy.
 export function FastTrackAcademyPage() {
   const progress = useRetentionStore((s) => s.academyProgress);
   const steps = useRetentionStore((s) => s.academySteps);
+  const isHydrating = useRetentionStore((s) => s.isHydrating);
   const done = steps.filter((s) => progress[s.id]).length;
   const pct = steps.length ? (done / steps.length) * 100 : 0;
+
+  if (isHydrating) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-6 py-10">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,6 +63,20 @@ export function FastTrackAcademyPage() {
                 <AcademyStepRow key={s.id} step={s} done={!!progress[s.id]} />
               ))}
             </ul>
+
+            {done === 0 && steps.length > 0 && (
+              <div className="mt-4 flex items-start gap-3 rounded-sm border border-dashed border-emerald-500/30 bg-emerald-500/5 p-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-emerald-500/20 text-emerald-300">
+                  <PlayCircle className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">You haven't started yet</div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Tick the first step above to log activation and start the fast-track path.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 flex items-center justify-between gap-3">
               <button
