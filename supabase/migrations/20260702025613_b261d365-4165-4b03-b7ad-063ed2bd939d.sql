@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.mirror_profile_to_sim_users() FROM PUBLIC, anon, authenticated;
