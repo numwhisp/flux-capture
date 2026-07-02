@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { activateTeamDiscount as activateTeamDiscountFn } from "./entitlements.functions";
 import type {
   AcademyStepRecord,
   Baseline,
@@ -361,16 +362,17 @@ export const sync = {
     return run("setIgnoreMode", supabase.from("experiment_config")
       .upsert({ key: "ignore_mode", value: value as unknown as never }, { onConflict: "key" }));
   },
-  setTeamDiscountActivated(userId: string, value: boolean) {
-    return run("setTeamDiscountActivated", supabase.from("user_entitlements")
-      .upsert(
-        {
-          user_id: userId,
-          team_discount_activated: value,
-          discount_activated_at: value ? new Date().toISOString() : null,
-        },
-        { onConflict: "user_id" },
-      ));
+  async activateTeamDiscount(_userId: string) {
+    // Writes go through a server function using the admin client because
+    // RLS blocks users from self-writing user_entitlements.
+    try {
+      await activateTeamDiscountFn();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[retention-sync] activateTeamDiscount", error);
+      toast.error("Sync failed", { description: `activateTeamDiscount: ${message}` });
+      throw error;
+    }
   },
   async resetAll() {
     // Wipe everything; FK cascades delete responses/invites/academy.

@@ -204,7 +204,7 @@ export const actions = {
       teamDiscountActivated: true,
       entitlements: { ...s.entitlements, [userId]: true },
     }));
-    if (userId) sync.setTeamDiscountActivated(userId, true);
+    if (userId) sync.activateTeamDiscount(userId);
   },
   setAcademyStep(id: string, done: boolean) {
     const userId = state.currentUserId;
