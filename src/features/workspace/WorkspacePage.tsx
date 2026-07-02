@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Activity, ArrowLeft, BarChart3, Bell, Inbox, Users, GraduationCap } from "lucide-react";
-import { cohortFor, useRetentionStore } from "@/features/retention";
+import { Activity, ArrowLeft, BarChart3, Bell, Inbox, Users, GraduationCap, AlertOctagon, RefreshCw } from "lucide-react";
+import { cohortFor, retryHydration, useRetentionStore } from "@/features/retention";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CheckInWidget } from "@/features/check-in/CheckInWidget";
 import { SimControls, SparkBars, StatCard } from "./WorkspaceWidgets";
 
@@ -11,6 +12,8 @@ import { SimControls, SparkBars, StatCard } from "./WorkspaceWidgets";
 export function WorkspacePage() {
   const users = useRetentionStore((s) => s.users);
   const currentUserId = useRetentionStore((s) => s.currentUserId);
+  const isHydrating = useRetentionStore((s) => s.isHydrating);
+  const hydrationError = useRetentionStore((s) => s.hydrationError);
   const user = users.find((u) => u.id === currentUserId) ?? users[0];
   const [open, setOpen] = useState(false);
 
@@ -22,10 +25,41 @@ export function WorkspacePage() {
     }
   }, [user?.id, user?.surveyed, user?.dayInJourney]);
 
-  if (!user) {
+  if (hydrationError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
-        Loading workspace…
+      <div className="mx-auto max-w-3xl px-6 py-16">
+        <div className="rounded-md border border-rose-500/30 bg-card p-6">
+          <div className="flex items-center gap-2 text-rose-300">
+            <AlertOctagon className="h-4 w-4" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Data unavailable</span>
+          </div>
+          <h1 className="mt-3 text-lg font-semibold tracking-tight">Couldn't load your data</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            We couldn't reach the retention backend. Check your connection and retry.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded-sm border border-border bg-background/40 p-3 text-[11px] text-rose-200">{hydrationError}</pre>
+          <Button size="sm" className="mt-4 h-8 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400"
+            onClick={() => retryHydration()}>
+            <RefreshCw className="mr-1.5 h-3 w-3" /> Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isHydrating || !user) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-64 w-full lg:col-span-2" />
+          <Skeleton className="h-64 w-full" />
+        </div>
       </div>
     );
   }
