@@ -1,34 +1,31 @@
 import { useMemo } from "react";
 import { actions, useRetentionStore } from "@/features/retention";
 
+// The persona switcher is gone — the current user is whoever is signed in.
+// This control now only lets a signed-in user jump their own journey day
+// so they can test the Day 14 / Day 45 triggers.
 export function SimControls() {
-  const users = useRetentionStore((s) => s.users);
   const currentUserId = useRetentionStore((s) => s.currentUserId);
-  const user = users.find((u) => u.id === currentUserId) ?? users[0];
+  const users = useRetentionStore((s) => s.users);
+  const user = users.find((u) => u.id === currentUserId);
+  if (!user) return null;
   return (
     <div className="rounded-xl border border-dashed border-border bg-background/60 p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sim controls</span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {users.map((u) => (
-            <button
-              key={u.id}
-              onClick={() => actions.setCurrentUser(u.id)}
-              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                u.id === currentUserId ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:bg-accent"
-              }`}
-            >
-              {u.name.split(" ")[0]} · D{u.dayInJourney}
-            </button>
-          ))}
-        </div>
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Sim controls · {user.name}
+        </span>
         <div className="ml-auto flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Jump:</span>
+          <span className="text-muted-foreground">Jump to day:</span>
           {[7, 14, 30, 45, 60].map((d) => (
             <button
               key={d}
               onClick={() => actions.setDay(user.id, d)}
-              className="rounded-md border border-border bg-background px-2 py-1 font-medium hover:bg-accent"
+              className={`rounded-md border px-2 py-1 font-medium transition-colors ${
+                user.dayInJourney === d
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border bg-background hover:bg-accent"
+              }`}
             >
               Day {d}
             </button>
