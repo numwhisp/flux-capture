@@ -36,8 +36,20 @@ export function ResponseStream({
           </div>
         </div>
       ) : responses.length === 0 ? (
-        <div className="px-5 py-12 text-center text-sm text-muted-foreground">
-          No responses yet. Open the <Link to="/dashboard" className="text-emerald-400 underline">user dashboard</Link> at Day 14 or Day 45.
+        <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-border bg-background/40 text-muted-foreground">
+            <AlertOctagon className="h-5 w-5" />
+          </div>
+          <h3 className="mt-4 text-sm font-semibold text-foreground">No check-ins yet</h3>
+          <p className="mt-1.5 max-w-md text-xs text-muted-foreground">
+            Run a simulated session above or open a live check-in from the user dashboard to populate the feed.
+          </p>
+          <Link
+            to="/dashboard"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-300 hover:bg-emerald-500/20"
+          >
+            Open user dashboard
+          </Link>
         </div>
       ) : (
         <ul className="divide-y divide-border">
