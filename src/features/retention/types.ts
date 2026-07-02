@@ -43,6 +43,10 @@ export interface RetentionState {
   invites: { email: string; status: "pending" | "accepted" }[];
   teamDiscountActivated: boolean;
   academyProgress: Record<string, boolean>;
+  /** True while the first Supabase fetch is in flight. */
+  isHydrating: boolean;
+  /** Non-null when the last hydration attempt threw. UI shows Retry. */
+  hydrationError: string | null;
   // ---- DB-driven config (hydrated from Supabase) ----
   surveyQuestions: SurveyQuestion[];
   interventionRules: InterventionRule[];
