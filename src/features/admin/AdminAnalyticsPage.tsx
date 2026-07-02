@@ -1,12 +1,14 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ArrowLeft, RotateCcw, Layers, MessageSquare, TrendingDown, AlertOctagon, Zap,
+  ArrowLeft, RotateCcw, Layers, MessageSquare, TrendingDown, AlertOctagon, Zap, RefreshCw, LineChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   actions,
   deriveAnalytics,
+  retryHydration,
   sparkFor,
   useRetentionStore,
   type FrictionType,
@@ -27,6 +29,46 @@ export function AdminAnalyticsPage() {
   const users = useRetentionStore((s) => s.users);
   const baseline = useRetentionStore((s) => s.baseline);
   const experimentConfig = useRetentionStore((s) => s.experimentConfig);
+  const isHydrating = useRetentionStore((s) => s.isHydrating);
+  const hydrationError = useRetentionStore((s) => s.hydrationError);
+
+  if (hydrationError) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-16">
+        <div className="rounded-md border border-rose-500/30 bg-card p-6">
+          <div className="flex items-center gap-2 text-rose-300">
+            <AlertOctagon className="h-4 w-4" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Analytics offline</span>
+          </div>
+          <h1 className="mt-3 text-lg font-semibold tracking-tight">Couldn't load your data</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The PM analytics feed couldn't hydrate from the retention backend.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded-sm border border-border bg-background/40 p-3 text-[11px] text-rose-200">{hydrationError}</pre>
+          <Button size="sm" className="mt-4 h-8 bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400"
+            onClick={() => retryHydration()}>
+            <RefreshCw className="mr-1.5 h-3 w-3" /> Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isHydrating) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-24 w-full" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+        </div>
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-72 w-full" />
+      </div>
+    );
+  }
   const snap = useMemo(
     () => deriveAnalytics({
       responses: responsesRaw,
@@ -146,7 +188,19 @@ export function AdminAnalyticsPage() {
                 <LegendDot className="bg-emerald-400" /> Treatment
               </div>
             </div>
-            <RetentionChart baseline={baselineCurve} treatment={treatment} />
+            {responses.length === 0 ? (
+              <div className="mt-4 flex flex-col items-center justify-center rounded-sm border border-dashed border-border bg-background/30 px-6 py-12 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-border bg-card text-muted-foreground">
+                  <LineChart className="h-5 w-5" />
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-foreground">No check-ins yet</h3>
+                <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                  Run a simulated session below to populate the friction feed and start the retention curve.
+                </p>
+              </div>
+            ) : (
+              <RetentionChart baseline={baselineCurve} treatment={treatment} />
+            )}
           </div>
 
           <div className="rounded-sm border border-border bg-card p-5 lg:col-span-2">
