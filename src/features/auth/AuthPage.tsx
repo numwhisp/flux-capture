@@ -66,7 +66,7 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-md border border-emerald-500/20 bg-card p-6 shadow-2xl shadow-emerald-500/5">
         <div className="mb-5 flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-emerald-500 text-emerald-950">
@@ -112,8 +112,13 @@ export function AuthPage() {
 
           {err && <p className="text-[11px] text-rose-300">{err}</p>}
 
-          <Button type="submit" disabled={busy} className="h-8 w-full bg-emerald-500 text-xs font-semibold text-emerald-950 hover:bg-emerald-400">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : mode === "signin" ? "Sign in" : "Create account"}
+          <Button
+            type="submit"
+            disabled={busy}
+            aria-label={mode === "signin" ? "Sign in" : "Create account"}
+            className="h-8 w-full bg-emerald-500 text-xs font-semibold text-emerald-950 hover:bg-emerald-400"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : mode === "signin" ? "Sign in" : "Create account"}
           </Button>
         </form>
 
@@ -133,6 +138,6 @@ export function AuthPage() {
           {mode === "signin" ? "No account? Create one" : "Already have an account? Sign in"}
         </button>
       </div>
-    </div>
+    </main>
   );
 }
