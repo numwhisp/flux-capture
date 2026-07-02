@@ -3,7 +3,9 @@ import { useState } from "react";
 import { actions, useRetentionStore } from "@/features/retention";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, BadgePercent, X, Users, Check, Sparkles } from "lucide-react";
+import { ArrowLeft, BadgePercent, X, Users, Check, Sparkles, Mail } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 const SEAT_CAP = 5;
 
@@ -13,15 +15,22 @@ export function TeamWorkspacePage() {
   const activated = useRetentionStore((s) => s.teamDiscountActivated);
   const users = useRetentionStore((s) => s.users);
   const currentUserId = useRetentionStore((s) => s.currentUserId);
+  const isHydrating = useRetentionStore((s) => s.isHydrating);
   const user = users.find((u) => u.id === currentUserId) ?? users[0];
 
   const [draft, setDraft] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  if (!user) {
+  if (isHydrating || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
-        Loading team workspace…
+      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-24 w-full" />
+        <div className="grid gap-4 lg:grid-cols-5">
+          <Skeleton className="h-56 w-full lg:col-span-3" />
+          <Skeleton className="h-56 w-full lg:col-span-2" />
+        </div>
       </div>
     );
   }
@@ -29,7 +38,7 @@ export function TeamWorkspacePage() {
   const activeSeats = user.seatsActive + invites.filter((i) => i.status === "accepted").length;
   const allocPct = Math.min(100, ((activeSeats + invites.length) / SEAT_CAP) * 100);
 
-  function commit(value: string) {
+  async function commit(value: string) {
     const email = value.trim().replace(/[,;]$/, "");
     if (!email) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -40,9 +49,20 @@ export function TeamWorkspacePage() {
       setErr("Already invited");
       return;
     }
-    actions.inviteTeammate(email);
-    setDraft("");
+    setPending(true);
     setErr(null);
+    try {
+      await actions.inviteTeammate(email);
+      setDraft("");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg);
+      // Preserve typed email in the field so the user can retry.
+      setDraft(email);
+      toast.error("Couldn't send invite", { description: msg });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
