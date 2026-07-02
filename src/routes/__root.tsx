@@ -90,8 +90,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Retention Engine — Churn intervention prototype" },
       { name: "twitter:description", content: "Functional prototype: in-app contextual check-ins that surface hidden churn drivers and trigger targeted interventions." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f0347b07-2afa-4360-8520-4bd77ec1c1f3/id-preview-a3771a69--f98155d8-4096-47b0-8540-73da6c6ed260.lovable.app-1782322719906.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f0347b07-2afa-4360-8520-4bd77ec1c1f3/id-preview-a3771a69--f98155d8-4096-47b0-8540-73da6c6ed260.lovable.app-1782322719906.png" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/1492f55b-a6ab-4d44-b590-b656583c117a" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/1492f55b-a6ab-4d44-b590-b656583c117a" },
     ],
     links: [
       {
