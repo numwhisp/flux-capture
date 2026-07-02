@@ -31,6 +31,17 @@ export function AdminAnalyticsPage() {
   const experimentConfig = useRetentionStore((s) => s.experimentConfig);
   const isHydrating = useRetentionStore((s) => s.isHydrating);
   const hydrationError = useRetentionStore((s) => s.hydrationError);
+  const snap = useMemo(
+    () => deriveAnalytics({
+      responses: responsesRaw,
+      modalImpressions: impressionsRaw,
+      modalDismissals: dismissalsRaw,
+      ignoreMode: ignoreModeRaw,
+      baseline,
+      experimentConfig,
+    }),
+    [responsesRaw, impressionsRaw, dismissalsRaw, ignoreModeRaw, baseline, experimentConfig],
+  );
 
   if (hydrationError) {
     return (
@@ -69,17 +80,6 @@ export function AdminAnalyticsPage() {
       </div>
     );
   }
-  const snap = useMemo(
-    () => deriveAnalytics({
-      responses: responsesRaw,
-      modalImpressions: impressionsRaw,
-      modalDismissals: dismissalsRaw,
-      ignoreMode: ignoreModeRaw,
-      baseline,
-      experimentConfig,
-    }),
-    [responsesRaw, impressionsRaw, dismissalsRaw, ignoreModeRaw, baseline, experimentConfig],
-  );
   const {
     responses, impressions, dismissals, ignoreMode,
     engagementRate, acceptedCount, actionability,
