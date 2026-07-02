@@ -18,6 +18,14 @@ export function TeamWorkspacePage() {
   const [draft, setDraft] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
+        Loading team workspace…
+      </div>
+    );
+  }
+
   const activeSeats = user.seatsActive + invites.filter((i) => i.status === "accepted").length;
   const allocPct = Math.min(100, ((activeSeats + invites.length) / SEAT_CAP) * 100);
 
