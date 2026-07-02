@@ -113,6 +113,32 @@ type DbUserEntitlement = {
   team_discount_activated: boolean;
 };
 
+type DbProfile = {
+  id: string;
+  display_name: string;
+  company: string;
+  product_role: string;
+  day_in_journey: number;
+  seats_active: number;
+  activated: boolean;
+  surveyed: boolean;
+  churned: boolean;
+};
+
+export function dbProfileToSimUser(p: DbProfile): SimUser {
+  return {
+    id: p.id,
+    name: p.display_name || "Member",
+    company: p.company || "",
+    role: p.product_role || "Member",
+    dayInJourney: p.day_in_journey,
+    seatsActive: p.seats_active,
+    activated: p.activated,
+    surveyed: p.surveyed,
+    churned: p.churned,
+  };
+}
+
 export function dbToSimUser(r: DbSimUser): SimUser {
   return {
     id: r.id, name: r.name, company: r.company, role: r.role,
@@ -151,11 +177,12 @@ export function responseToDb(r: SurveyResponse) {
 
 export async function fetchAll() {
   const [
-    usersRes, respRes, invRes, acadRes,
+    usersRes, profilesRes, respRes, invRes, acadRes,
     questionsRes, rulesRes, cohortRes, baselineRes,
     cfgRes, stepsRes, entRes, modalRes,
   ] = await Promise.all([
     supabase.from("sim_users").select("*"),
+    supabase.from("profiles").select("*"),
     supabase.from("survey_responses").select("*").order("created_at", { ascending: false }),
     supabase.from("invites").select("*").order("created_at", { ascending: false }),
     supabase.from("academy_progress").select("*"),
@@ -224,8 +251,14 @@ export async function fetchAll() {
     entitlements[e.user_id] = e.team_discount_activated;
   }
 
+  // Merge profile rows + legacy sim_users. Profiles win on id collisions.
+  const profilesList: SimUser[] = ((profilesRes.data as DbProfile[] | null) ?? []).map(dbProfileToSimUser);
+  const simList: SimUser[] = ((usersRes.data as DbSimUser[] | null) ?? []).map(dbToSimUser);
+  const seen = new Set(profilesList.map((p) => p.id));
+  const mergedUsers = [...profilesList, ...simList.filter((s) => !seen.has(s.id))];
+
   return {
-    users: (usersRes.data as DbSimUser[]).map(dbToSimUser),
+    users: mergedUsers,
     responses: (respRes.data as DbSurveyResponse[]).map(dbToResponse),
     invites: (invRes.data as DbInvite[]).map((i) => ({ email: i.email, status: i.status })),
     academyProgress: (acadRes.data as DbAcademyProgress[]).reduce<Record<string, boolean>>(
@@ -267,6 +300,21 @@ function logErr(label: string) {
 export const sync = {
   upsertUser(u: SimUser) {
     supabase.from("sim_users").upsert(simUserToDb(u)).then(({ error }) => logErr("upsertUser")(error));
+  },
+  upsertOwnProfile(u: SimUser) {
+    supabase.from("profiles")
+      .update({
+        display_name: u.name,
+        company: u.company,
+        product_role: u.role,
+        day_in_journey: u.dayInJourney,
+        seats_active: u.seatsActive,
+        activated: u.activated,
+        surveyed: u.surveyed,
+        churned: u.churned,
+      })
+      .eq("id", u.id)
+      .then(({ error }) => logErr("upsertOwnProfile")(error));
   },
   insertResponse(r: SurveyResponse) {
     supabase.from("survey_responses").insert(responseToDb(r)).then(({ error }) => logErr("insertResponse")(error));
