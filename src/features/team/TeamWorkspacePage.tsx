@@ -128,6 +128,20 @@ export function TeamWorkspacePage() {
               Paste emails — press Enter, comma, or space to add. They get the discounted seat link.
             </p>
 
+            {invites.length === 0 && (
+              <div className="mt-4 flex items-start gap-3 rounded-sm border border-dashed border-emerald-500/30 bg-emerald-500/5 p-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-emerald-500/20 text-emerald-300">
+                  <Mail className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">No teammates invited yet</div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Accounts with 3+ seats churn 4× less. Paste an email below to send your first invite.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 flex flex-wrap items-center gap-1.5 rounded-sm border border-border bg-background/40 p-2">
               {invites.map((i) => (
                 <span
