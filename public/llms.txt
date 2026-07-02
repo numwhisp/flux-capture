@@ -1,0 +1,60 @@
+# Retention Engine
+
+> Functional prototype testing whether 3-question contextual check-ins at Day 14 and Day 45 can cut 90-day B2B SaaS churn by 15%.
+
+The Retention Engine surfaces the *why* behind churn (Usability, Value, Admin friction) directly inside the product dashboard and triggers a matched intervention — fast-track academy, team-seat discount, or a follow-up from the customer team.
+
+## Pages
+
+- [Home](/): Hypothesis pitch and entry points to the user and PM analytics views.
+- [Sign in](/auth): Sign in or create an account to access the workspace.
+*** Add File: src/routes/sitemap[.]xml.ts
+import { createFileRoute } from "@tanstack/react-router";
+import type {} from "@tanstack/react-start";
+
+const BASE_URL = "https://flux-capture.lovable.app";
+
+interface SitemapEntry {
+  path: string;
+  changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
+  priority?: string;
+}
+
+export const Route = createFileRoute("/sitemap.xml")({
+  server: {
+    handlers: {
+      GET: async () => {
+        const entries: SitemapEntry[] = [
+          { path: "/", changefreq: "weekly", priority: "1.0" },
+          { path: "/auth", changefreq: "monthly", priority: "0.4" },
+        ];
+
+        const urls = entries.map((e) =>
+          [
+            `  <url>`,
+            `    <loc>${BASE_URL}${e.path}</loc>`,
+            e.changefreq ? `    <changefreq>${e.changefreq}</changefreq>` : null,
+            e.priority ? `    <priority>${e.priority}</priority>` : null,
+            `  </url>`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        );
+
+        const xml = [
+          `<?xml version="1.0" encoding="UTF-8"?>`,
+          `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+          ...urls,
+          `</urlset>`,
+        ].join("\n");
+
+        return new Response(xml, {
+          headers: {
+            "Content-Type": "application/xml",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      },
+    },
+  },
+});

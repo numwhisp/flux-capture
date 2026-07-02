@@ -6,6 +6,8 @@ export const Route = createFileRoute("/_authenticated/dashboard/team")({
     meta: [
       { title: "Team seats — Retention Engine" },
       { name: "description", content: "Activate the triggered team discount and invite teammates to close the seat-stagnation loop." },
+      { property: "og:title", content: "Team seats — Retention Engine" },
+      { property: "og:description", content: "Activate a triggered team discount and invite teammates to close the seat-stagnation loop." },
     ],
   }),
   component: TeamWorkspacePage,
