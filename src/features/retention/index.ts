@@ -2,7 +2,7 @@ export * from "./types";
 export * from "./intervention";
 export * from "./classifier";
 export * from "./metrics";
-export { useRetentionStore, actions, subscribe, getState, ensureHydrated } from "./store";
+export { useRetentionStore, actions, subscribe, getState, ensureHydrated, retryHydration } from "./store";
 export {
   FALLBACK_ACADEMY_STEPS,
   FALLBACK_BASELINE,
