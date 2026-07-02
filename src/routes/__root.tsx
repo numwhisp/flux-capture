@@ -131,7 +131,7 @@ function RootComponent() {
         router.navigate({ to: "/auth" });
       } else if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN" || event === "USER_UPDATED") {
         router.invalidate();
-        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+        queryClient.invalidateQueries();
       }
     });
     return () => data.subscription.unsubscribe();
