@@ -255,6 +255,48 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          activated: boolean
+          churned: boolean
+          company: string
+          created_at: string
+          day_in_journey: number
+          display_name: string
+          id: string
+          product_role: string
+          seats_active: number
+          surveyed: boolean
+          updated_at: string
+        }
+        Insert: {
+          activated?: boolean
+          churned?: boolean
+          company?: string
+          created_at?: string
+          day_in_journey?: number
+          display_name?: string
+          id: string
+          product_role?: string
+          seats_active?: number
+          surveyed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          activated?: boolean
+          churned?: boolean
+          company?: string
+          created_at?: string
+          day_in_journey?: number
+          display_name?: string
+          id?: string
+          product_role?: string
+          seats_active?: number
+          surveyed?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sim_users: {
         Row: {
           activated: boolean
@@ -413,14 +455,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "end_user" | "admin"
       cohort_type: "day14" | "day45"
       friction_type: "usability" | "value" | "admin"
       intervention_action:
@@ -559,6 +629,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["end_user", "admin"],
       cohort_type: ["day14", "day45"],
       friction_type: ["usability", "value", "admin"],
       intervention_action: [
