@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertOctagon, LifeBuoy } from "lucide-react";
+import { AlertOctagon, LifeBuoy, SkipForward } from "lucide-react";
 import { actions, type AcademyStepRecord } from "@/features/retention";
 
 export function AcademyStepRow({ step, done }: { step: AcademyStepRecord; done: boolean }) {
@@ -19,6 +19,13 @@ export function AcademyStepRow({ step, done }: { step: AcademyStepRecord; done: 
       setPipelineFailed(true);
       return;
     }
+    actions.setAcademyStep(step.id, true);
+  }
+
+  // Flaky integrations (Salesforce) are optional. The user can skip past the
+  // connector failure so the checklist isn't blocked by an upstream 503.
+  function skipFlaky() {
+    setPipelineFailed(false);
     actions.setAcademyStep(step.id, true);
   }
 
@@ -43,7 +50,7 @@ export function AcademyStepRow({ step, done }: { step: AcademyStepRecord; done: 
                   : "border-amber-500/40 bg-amber-500/10 text-amber-300"
               }`}
             >
-              {pipelineFailed ? "pipeline failed" : "flaky"}
+              {pipelineFailed ? "pipeline failed" : "flaky · optional"}
             </span>
           )}
         </div>
@@ -54,13 +61,19 @@ export function AcademyStepRow({ step, done }: { step: AcademyStepRecord; done: 
               <AlertOctagon className="h-3 w-3" /> API connection time-out
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-rose-200">
-              Live pipeline sync failed. We have automatically opened a high-priority support
-              ticket to complete your setup manually.
+              Live pipeline sync failed. We've opened a high-priority ticket to finish setup manually —
+              this step is optional, so you can skip it and keep moving.
             </p>
             <div className="mt-2 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-sm border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-rose-300">
                 <LifeBuoy className="h-3 w-3" /> Ticket #SF-4827 opened
               </span>
+              <button
+                onClick={skipFlaky}
+                className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-300 hover:bg-emerald-500/20"
+              >
+                <SkipForward className="h-3 w-3" /> Skip for now
+              </button>
               <button
                 onClick={() => setPipelineFailed(false)}
                 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
