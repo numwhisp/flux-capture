@@ -12,16 +12,25 @@ export function WorkspacePage() {
   const users = useRetentionStore((s) => s.users);
   const currentUserId = useRetentionStore((s) => s.currentUserId);
   const user = users.find((u) => u.id === currentUserId) ?? users[0];
-  const cohort = cohortFor(user.dayInJourney);
   const [open, setOpen] = useState(false);
 
   // Auto-open when entering a trigger window and not yet surveyed
   useEffect(() => {
-    if (cohort && !user.surveyed) {
+    if (user && cohortFor(user.dayInJourney) && !user.surveyed) {
       const t = setTimeout(() => setOpen(true), 600);
       return () => clearTimeout(t);
     }
-  }, [cohort, user.surveyed, user.id]);
+  }, [user?.id, user?.surveyed, user?.dayInJourney]);
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
+        Loading workspace…
+      </div>
+    );
+  }
+
+  const cohort = cohortFor(user.dayInJourney);
 
   return (
     <div className="min-h-screen bg-muted/30">
