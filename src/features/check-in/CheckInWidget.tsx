@@ -248,6 +248,21 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
                     </div>
                   </div>
                 )}
+                {submitError && !analyzing && (
+                  <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded-sm border border-rose-500/40 bg-rose-500/10 p-2.5 text-[11px] text-rose-200"
+                  >
+                    <AlertOctagon className="mt-0.5 h-3 w-3 shrink-0" />
+                    <div>
+                      <div className="font-semibold uppercase tracking-wider text-rose-300">
+                        Submission failed
+                      </div>
+                      <div className="mt-0.5 text-rose-200/80">{submitError}</div>
+                      <div className="mt-1 text-rose-200/60">Your answers are still filled in — press Submit to retry.</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
