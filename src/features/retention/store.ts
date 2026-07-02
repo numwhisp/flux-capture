@@ -8,24 +8,17 @@ import type {
 import { initialState } from "./seed";
 import { resolveInterventionFromRules } from "./intervention";
 import { fetchAll, seedIfEmpty, sync } from "./supabase-sync";
+import { supabase } from "@/integrations/supabase/client";
 
-// Only UI-only / device-local fields are persisted to localStorage. All
-// domain data (users, responses, invites, academyProgress) lives in Supabase.
-const STORAGE_KEY = "retention-engine-ui-v3";
-
-type LocalUiState = Pick<
-  RetentionState,
-  "currentUserId"
->;
+// UI-only device-local fields are no longer persisted — currentUserId comes
+// from the Supabase auth session, not localStorage.
 
 let state: RetentionState = load();
 const listeners = new Set<() => void>();
 
 function load(): RetentionState {
-  // Start from an EMPTY domain state — Supabase hydration fills it in. Only
-  // currentUserId is restored from localStorage so the active persona persists
-  // across reloads; everything else (counters, ignore_mode, entitlements) is
-  // server-authoritative now.
+  // Start from an EMPTY domain state — Supabase hydration fills it in once
+  // an authenticated session is available.
   const empty: RetentionState = {
     ...initialState,
     users: [],
@@ -37,28 +30,13 @@ function load(): RetentionState {
     ignoreMode: false,
     teamDiscountActivated: false,
     entitlements: {},
+    currentUserId: "",
   };
-  if (typeof window === "undefined") return empty;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return empty;
-    const ui = JSON.parse(raw) as Partial<LocalUiState>;
-    return { ...empty, ...ui };
-  } catch {
-    return empty;
-  }
+  return empty;
 }
 
 function persist() {
-  if (typeof window === "undefined") return;
-  try {
-    const ui: LocalUiState = {
-      currentUserId: state.currentUserId,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ui));
-  } catch {
-    /* ignore */
-  }
+  // no-op: nothing persisted to localStorage in the auth model.
 }
 
 function setState(updater: (s: RetentionState) => RetentionState) {
@@ -90,10 +68,16 @@ let hydratePromise: Promise<void> | undefined;
 
 async function hydrate() {
   try {
-    await seedIfEmpty();
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id ?? "";
+    if (!uid) {
+      // No session — leave the store empty. Public routes render fine.
+      return;
+    }
     const data = await fetchAll();
     setState((s) => ({
       ...s,
+      currentUserId: uid,
       users: data.users,
       responses: data.responses,
       invites: data.invites,
@@ -108,7 +92,7 @@ async function hydrate() {
       ignoreMode: data.experimentConfig.ignoreMode,
       modalImpressions: data.modalImpressions,
       modalDismissals: data.modalDismissals,
-      teamDiscountActivated: data.entitlements[s.currentUserId] ?? false,
+      teamDiscountActivated: data.entitlements[uid] ?? false,
     }));
   } catch (err) {
     console.error("[retention-store] hydrate failed", err);
@@ -124,16 +108,29 @@ export function ensureHydrated() {
 // Kick off hydration as soon as the store module loads in the browser.
 if (typeof window !== "undefined") {
   void ensureHydrated();
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+      hydratePromise = undefined;
+      void ensureHydrated();
+    } else if (event === "SIGNED_OUT") {
+      hydratePromise = undefined;
+      setState((s) => ({
+        ...s,
+        currentUserId: "",
+        users: [],
+        responses: [],
+        invites: [],
+        academyProgress: {},
+        modalImpressions: 0,
+        modalDismissals: 0,
+        teamDiscountActivated: false,
+        entitlements: {},
+      }));
+    }
+  });
 }
 
 export const actions = {
-  setCurrentUser(id: string) {
-    setState((s) => ({
-      ...s,
-      currentUserId: id,
-      teamDiscountActivated: s.entitlements[id] ?? false,
-    }));
-  },
   setDay(id: string, day: number) {
     let updated: ReturnType<typeof Object> | undefined;
     setState((s) => ({
@@ -145,7 +142,12 @@ export const actions = {
         return next;
       }),
     }));
-    if (updated) sync.upsertUser(updated as never);
+    if (updated) {
+      // Prefer profile write for the current auth user; fall back to sim_users
+      // (admin-only via RLS) for legacy seeded personas.
+      if (id === state.currentUserId) sync.upsertOwnProfile(updated as never);
+      else sync.upsertUser(updated as never);
+    }
   },
   recordImpression() {
     const userId = state.currentUserId;
@@ -272,7 +274,10 @@ export const actions = {
       }),
     }));
     sync.insertResponse(response);
-    if (updatedUser) sync.upsertUser(updatedUser as never);
+    if (updatedUser) {
+      if (r.userId === state.currentUserId) sync.upsertOwnProfile(updatedUser as never);
+      else sync.upsertUser(updatedUser as never);
+    }
     return response;
   },
   acceptIntervention(id: string, accepted: boolean) {
