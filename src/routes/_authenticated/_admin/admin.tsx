@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AdminAnalyticsPage } from "@/features/admin/AdminAnalyticsPage";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/_authenticated/_admin/admin")({
   head: () => ({
     meta: [
       { title: "PM analytics — Retention Engine" },

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FastTrackAcademyPage, FastTrackAcademyError } from "@/features/academy/FastTrackAcademyPage";
 
-export const Route = createFileRoute("/dashboard/academy")({
+export const Route = createFileRoute("/_authenticated/dashboard/academy")({
   head: () => ({
     meta: [
       { title: "Fast-track academy — Retention Engine" },

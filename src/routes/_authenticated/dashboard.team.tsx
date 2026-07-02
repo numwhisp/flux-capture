@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TeamWorkspacePage } from "@/features/team/TeamWorkspacePage";
 
-export const Route = createFileRoute("/dashboard/team")({
+export const Route = createFileRoute("/_authenticated/dashboard/team")({
   head: () => ({
     meta: [
       { title: "Team seats — Retention Engine" },
