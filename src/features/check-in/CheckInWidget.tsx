@@ -13,7 +13,8 @@ import {
   type FrictionType,
   type SimUser,
 } from "@/features/retention";
-import { Loader2, Sparkles, X } from "lucide-react";
+import { Loader2, Sparkles, X, AlertOctagon } from "lucide-react";
+import { toast } from "sonner";
 import { getAnalyzeLatencyMs, getQ1Options, getQ2Options } from "./questions";
 import { PostSubmissionIntervention } from "./PostSubmissionIntervention";
 
@@ -43,6 +44,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   // we freeze the form and run a skeleton so the regex categorizer has a
   // visible "thinking" beat. Pure UX latency — categorization is sync.
   const [analyzing, setAnalyzing] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // DB-driven survey config (with hardcoded fallback during first paint).
@@ -55,7 +57,7 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
     if (open) {
       actions.recordImpression();
       setStep(0); setQ1(null); setQ2(null); setQ3(null);
-      setFreeText(""); setSubmitted(null); setAnalyzing(false);
+      setFreeText(""); setSubmitted(null); setAnalyzing(false); setSubmitError(null);
     }
   }, [open]);
 
@@ -78,22 +80,31 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
   function handleSubmit() {
     if (!finalFriction || !q1 || !q2 || q3 === null) return;
     setAnalyzing(true);
-    window.setTimeout(() => {
+    setSubmitError(null);
+    window.setTimeout(async () => {
       const intervention = resolveInterventionFromRules(interventionRules, finalFriction, cohort);
-      const r = actions.submitResponse({
-        userId: user.id,
-        cohort,
-        friction: finalFriction,
-        q1: q1Options.find((o) => o.id === q1)?.label ?? q1,
-        q2,
-        q3: `${q3}/10 likely to renew`,
-        freeText,
-        intervention,
-        interventionAccepted: null,
-      });
-      setSubmitted({ id: r.id, intervention });
-      setAnalyzing(false);
-      setStep(3);
+      try {
+        const r = await actions.submitResponse({
+          userId: user.id,
+          cohort,
+          friction: finalFriction,
+          q1: q1Options.find((o) => o.id === q1)?.label ?? q1,
+          q2,
+          q3: `${q3}/10 likely to renew`,
+          freeText,
+          intervention,
+          interventionAccepted: null,
+        });
+        setSubmitted({ id: r.id, intervention });
+        setAnalyzing(false);
+        setStep(3);
+      } catch (err) {
+        // Preserve typed input + selections so the user can retry immediately.
+        const msg = err instanceof Error ? err.message : String(err);
+        setSubmitError(msg);
+        setAnalyzing(false);
+        toast.error("Couldn't submit your check-in", { description: msg });
+      }
     }, analyzeLatencyMs);
   }
 
@@ -234,6 +245,21 @@ export function CheckInWidget({ open, onOpenChange, user, cohort }: Props) {
                       <div className="h-2 w-5/6 animate-pulse rounded-sm bg-emerald-500/20" />
                       <div className="h-2 w-2/3 animate-pulse rounded-sm bg-emerald-500/15" />
                       <div className="h-2 w-3/4 animate-pulse rounded-sm bg-emerald-500/10" />
+                    </div>
+                  </div>
+                )}
+                {submitError && !analyzing && (
+                  <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded-sm border border-rose-500/40 bg-rose-500/10 p-2.5 text-[11px] text-rose-200"
+                  >
+                    <AlertOctagon className="mt-0.5 h-3 w-3 shrink-0" />
+                    <div>
+                      <div className="font-semibold uppercase tracking-wider text-rose-300">
+                        Submission failed
+                      </div>
+                      <div className="mt-0.5 text-rose-200/80">{submitError}</div>
+                      <div className="mt-1 text-rose-200/60">Your answers are still filled in — press Submit to retry.</div>
                     </div>
                   </div>
                 )}

@@ -9,6 +9,7 @@ import { initialState } from "./seed";
 import { resolveInterventionFromRules } from "./intervention";
 import { fetchAll, seedIfEmpty, sync } from "./supabase-sync";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // UI-only device-local fields are no longer persisted — currentUserId comes
 // from the Supabase auth session, not localStorage.
@@ -31,6 +32,8 @@ function load(): RetentionState {
     teamDiscountActivated: false,
     entitlements: {},
     currentUserId: "",
+    isHydrating: true,
+    hydrationError: null,
   };
   return empty;
 }
@@ -67,11 +70,13 @@ export function useRetentionStore<T>(selector: (s: RetentionState) => T): T {
 let hydratePromise: Promise<void> | undefined;
 
 async function hydrate() {
+  setState((s) => ({ ...s, isHydrating: true, hydrationError: null }));
   try {
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user?.id ?? "";
     if (!uid) {
       // No session — leave the store empty. Public routes render fine.
+      setState((s) => ({ ...s, isHydrating: false }));
       return;
     }
     const data = await fetchAll();
@@ -93,16 +98,28 @@ async function hydrate() {
       modalImpressions: data.modalImpressions,
       modalDismissals: data.modalDismissals,
       teamDiscountActivated: data.entitlements[uid] ?? false,
+      isHydrating: false,
+      hydrationError: null,
     }));
   } catch (err) {
     console.error("[retention-store] hydrate failed", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    setState((s) => ({ ...s, isHydrating: false, hydrationError: msg }));
+    toast.error("Couldn't load your data", { description: msg });
+    throw err;
   }
 }
 
 export function ensureHydrated() {
   if (typeof window === "undefined") return Promise.resolve();
-  if (!hydratePromise) hydratePromise = hydrate();
+  if (!hydratePromise) hydratePromise = hydrate().catch(() => {});
   return hydratePromise;
+}
+
+/** Re-run hydration after a failure. Used by the ErrorBoundary Retry button. */
+export function retryHydration() {
+  hydratePromise = undefined;
+  return ensureHydrated();
 }
 
 // Kick off hydration as soon as the store module loads in the browser.
@@ -170,7 +187,11 @@ export const actions = {
   inviteTeammate(email: string) {
     const inviter = state.currentUserId;
     setState((s) => ({ ...s, invites: [...s.invites, { email, status: "pending" }] }));
-    sync.insertInvite(inviter, email);
+    return sync.insertInvite(inviter, email).catch((err) => {
+      // Rollback optimistic insert so the user can retry.
+      setState((s) => ({ ...s, invites: s.invites.filter((i) => i.email !== email) }));
+      throw err;
+    });
   },
   removeInvite(email: string) {
     setState((s) => ({ ...s, invites: s.invites.filter((i) => i.email !== email) }));
@@ -256,7 +277,7 @@ export const actions = {
       for (const e of impressionEvents) sync.recordModalEvent(e.userId, "submit", e.cohort);
     }
   },
-  submitResponse(r: Omit<SurveyResponse, "id" | "createdAt">) {
+  async submitResponse(r: Omit<SurveyResponse, "id" | "createdAt">) {
     const response: SurveyResponse = {
       ...r,
       id: crypto.randomUUID(),
@@ -273,10 +294,20 @@ export const actions = {
         return next;
       }),
     }));
-    sync.insertResponse(response);
-    if (updatedUser) {
-      if (r.userId === state.currentUserId) sync.upsertOwnProfile(updatedUser as never);
-      else sync.upsertUser(updatedUser as never);
+    try {
+      await sync.insertResponse(response);
+      if (updatedUser) {
+        if (r.userId === state.currentUserId) sync.upsertOwnProfile(updatedUser as never);
+        else sync.upsertUser(updatedUser as never);
+      }
+    } catch (err) {
+      // Roll back so the user can retry with their input still on screen.
+      setState((s) => ({
+        ...s,
+        responses: s.responses.filter((x) => x.id !== response.id),
+        users: s.users.map((u) => (u.id === r.userId ? { ...u, surveyed: false } : u)),
+      }));
+      throw err;
     }
     return response;
   },

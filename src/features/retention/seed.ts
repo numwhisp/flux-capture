@@ -127,4 +127,6 @@ export const initialState: RetentionState = {
   experimentConfig: FALLBACK_EXPERIMENT_CONFIG,
   academySteps: FALLBACK_ACADEMY_STEPS,
   entitlements: {},
+  isHydrating: true,
+  hydrationError: null,
 };

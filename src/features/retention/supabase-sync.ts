@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type {
   AcademyStepRecord,
   Baseline,
@@ -289,20 +290,29 @@ export async function seedIfEmpty() {
   return true;
 }
 
-// ---------- writers (fire-and-forget; log on error) ----------
-
-function logErr(label: string) {
-  return (err: unknown) => {
-    if (err) console.error(`[retention-sync] ${label}`, err);
-  };
+// ---------- writers (awaitable; global toast on error) ----------
+//
+// Every writer awaits the Supabase response, surfaces a Sonner toast if the
+// query returns an error, and re-throws so callers can roll back optimistic
+// state and preserve the user's input. Silent write failures during demos
+// are no longer possible.
+async function run<T extends { error: unknown }>(label: string, p: PromiseLike<T>): Promise<T> {
+  const res = await p;
+  const error = (res as { error: { message?: string } | null }).error;
+  if (error) {
+    console.error(`[retention-sync] ${label}`, error);
+    toast.error("Sync failed", { description: `${label}: ${error.message ?? "unknown error"}` });
+    throw error;
+  }
+  return res;
 }
 
 export const sync = {
   upsertUser(u: SimUser) {
-    supabase.from("sim_users").upsert(simUserToDb(u)).then(({ error }) => logErr("upsertUser")(error));
+    return run("upsertUser", supabase.from("sim_users").upsert(simUserToDb(u)));
   },
   upsertOwnProfile(u: SimUser) {
-    supabase.from("profiles")
+    return run("upsertOwnProfile", supabase.from("profiles")
       .update({
         display_name: u.name,
         company: u.company,
@@ -313,49 +323,46 @@ export const sync = {
         surveyed: u.surveyed,
         churned: u.churned,
       })
-      .eq("id", u.id)
-      .then(({ error }) => logErr("upsertOwnProfile")(error));
+      .eq("id", u.id));
   },
   insertResponse(r: SurveyResponse) {
-    supabase.from("survey_responses").insert(responseToDb(r)).then(({ error }) => logErr("insertResponse")(error));
+    return run("insertResponse", supabase.from("survey_responses").insert(responseToDb(r)));
   },
   insertResponses(rs: SurveyResponse[]) {
-    if (rs.length === 0) return;
-    supabase.from("survey_responses").insert(rs.map(responseToDb)).then(({ error }) => logErr("insertResponses")(error));
+    if (rs.length === 0) return Promise.resolve();
+    return run("insertResponses", supabase.from("survey_responses").insert(rs.map(responseToDb)));
   },
   updateResponseAccepted(id: string, accepted: boolean | null) {
-    supabase.from("survey_responses").update({ intervention_accepted: accepted }).eq("id", id)
-      .then(({ error }) => logErr("updateResponseAccepted")(error));
+    return run("updateResponseAccepted",
+      supabase.from("survey_responses").update({ intervention_accepted: accepted }).eq("id", id));
   },
   insertInvite(inviterUserId: string, email: string) {
-    supabase.from("invites").insert({ inviter_user_id: inviterUserId, email, status: "pending" })
-      .then(({ error }) => logErr("insertInvite")(error));
+    return run("insertInvite",
+      supabase.from("invites").insert({ inviter_user_id: inviterUserId, email, status: "pending" }));
   },
   deleteInvite(email: string) {
-    supabase.from("invites").delete().eq("email", email)
-      .then(({ error }) => logErr("deleteInvite")(error));
+    return run("deleteInvite", supabase.from("invites").delete().eq("email", email));
   },
   upsertAcademy(userId: string, stepId: string, done: boolean) {
-    supabase.from("academy_progress").upsert(
+    return run("upsertAcademy", supabase.from("academy_progress").upsert(
       { user_id: userId, step_id: stepId, done },
       { onConflict: "user_id,step_id" },
-    ).then(({ error }) => logErr("upsertAcademy")(error));
+    ));
   },
   clearAcademyForUser(userId: string) {
-    supabase.from("academy_progress").delete().eq("user_id", userId)
-      .then(({ error }) => logErr("clearAcademyForUser")(error));
+    return run("clearAcademyForUser",
+      supabase.from("academy_progress").delete().eq("user_id", userId));
   },
   recordModalEvent(userId: string | null, eventType: "impression" | "dismissal" | "submit", cohort: Cohort | null) {
-    supabase.from("modal_events").insert({ user_id: userId, event_type: eventType, cohort })
-      .then(({ error }) => logErr("recordModalEvent")(error));
+    return run("recordModalEvent",
+      supabase.from("modal_events").insert({ user_id: userId, event_type: eventType, cohort }));
   },
   setIgnoreMode(value: boolean) {
-    supabase.from("experiment_config")
-      .upsert({ key: "ignore_mode", value: value as unknown as never }, { onConflict: "key" })
-      .then(({ error }) => logErr("setIgnoreMode")(error));
+    return run("setIgnoreMode", supabase.from("experiment_config")
+      .upsert({ key: "ignore_mode", value: value as unknown as never }, { onConflict: "key" }));
   },
   setTeamDiscountActivated(userId: string, value: boolean) {
-    supabase.from("user_entitlements")
+    return run("setTeamDiscountActivated", supabase.from("user_entitlements")
       .upsert(
         {
           user_id: userId,
@@ -363,8 +370,7 @@ export const sync = {
           discount_activated_at: value ? new Date().toISOString() : null,
         },
         { onConflict: "user_id" },
-      )
-      .then(({ error }) => logErr("setTeamDiscountActivated")(error));
+      ));
   },
   async resetAll() {
     // Wipe everything; FK cascades delete responses/invites/academy.
